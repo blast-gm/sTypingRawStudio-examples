@@ -28,6 +28,12 @@ textarea { min-height: 260px; resize: vertical; line-height: 1.5; }
 .script-empty { color: #55545c; font-size: 11.5px; padding: 10px; line-height: 1.6; }
 .script-row { display: flex; gap: 5px; }
 .script-chip {
+  /* sobrescreve a regra global "textarea { min-height: 260px; }" (linha
+     10 acima) - sem isso TODA caixa ficava gigante, so um espaco vazio
+     enorme embaixo de uma linha de texto - o auto-ajuste em JS
+     (autoResizeChip) calcula a altura certa, mas o min-height global
+     "vencia" e forcava 260px de qualquer jeito */
+  min-height: 0; width: auto;
   flex: 1; min-width: 0; box-sizing: border-box;
   background: #1e1e23; border: 1px solid #29292f; border-radius: 4px;
   color: #eae7e1; font-size: 12px; line-height: 1.45; text-align: center;
