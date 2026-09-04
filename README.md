@@ -20,6 +20,7 @@ própria**.
 | [`extension-template/`](./extension-template) | O ponto de partida pra criar uma extensão nova - a estrutura mínima, comentada, sem fazer nada de útil por si só. É o mesmo `.zip` oferecido como "extensão base" pra download no sTraw Hub. |
 | [`examples/hello-extension/`](./examples/hello-extension) | O exemplo mais simples possível: registra um item de menu que mostra um diálogo. Duas dezenas de linhas, dá pra ler inteiro em um minuto. |
 | [`examples/smart-cleaner/`](./examples/smart-cleaner) | Exemplo real e completo, em produção: limpa páginas de mangá (remove texto/marcas da imagem original) usando inpainting local com IA (modelo LaMa via ONNX Runtime, GPU automática via DirectML/WebGPU quando disponível), com um painel próprio (canvas de pintura interativo), pincel dinâmico e desfazer. Mostra praticamente toda a Extension API em uso: painel customizado, leitura/escrita de imagem do projeto, processamento de imagem, navegação entre páginas. |
+| [`examples/page-translator/`](./examples/page-translator) | Detecta balão/texto numa página (modelo local RT-DETRv2) e traduz - via Gemini (lê e traduz direto da imagem, uma chamada por página inteira) com fallback automático pra um tradutor gratuito sem chave nenhuma (traduzindo o texto já existente na página) se não houver chave ou a chamada falhar. Mostra `studio.image.detectText`/`cropRegion`, `studio.ai.gemini` (multimodal, várias imagens numa chamada), `studio.translate.free`, e `studio.editor.refresh`. |
 
 ## Como uma extensão funciona (resumo)
 
@@ -57,10 +58,14 @@ várias ao mesmo tempo. Depois de qualquer mudança, **"Recarregar"**
 reativa tudo sem precisar reiniciar o app. Guia completo:
 [studio.blast.net.br/docs/creating-an-extension](https://studio.blast.net.br/docs/creating-an-extension#4-teste-localmente---pasta-de-desenvolvimento).
 
-`examples/smart-cleaner` é a exceção - o modelo de IA (`lama_fp32.onnx`,
-~200MB) não fica neste repo, então essa pasta específica só funciona
-depois de baixá-lo (do [Carve/LaMa-ONNX](https://huggingface.co/Carve/LaMa-ONNX)
-no Hugging Face) pra dentro de `examples/smart-cleaner/models/`.
+`examples/smart-cleaner` e `examples/page-translator` são exceção - os
+modelos de IA deles não ficam neste repo (grandes demais pro git):
+
+```bash
+# smart-cleaner (~200MB, precisa baixar manualmente - ver o README da pasta)
+# page-translator (~44MB, baixa sozinho):
+node examples/page-translator/download-model.js
+```
 
 ## Empacotando (pra publicar)
 
@@ -75,6 +80,9 @@ npm run build:hello-extension
 
 # gera examples/smart-cleaner em dist-extensions/smart-cleaner-1.0.0.zip
 node examples/smart-cleaner/build-package.js "/caminho/para/lama_fp32.onnx"
+
+# gera examples/page-translator em dist-extensions/page-translator-1.0.0.zip
+npm run build:page-translator
 ```
 
 ## Publicando sua própria extensão

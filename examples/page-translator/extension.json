@@ -1,0 +1,12 @@
+{
+  "id": "page-translator",
+  "name": "Page Translator",
+  "version": "1.0.0",
+  "description": "Detecta balões/texto numa página (IA local, RT-DETR) e traduz - via Gemini (OCR + tradução direto da imagem, chave própria) ou, sem chave, traduzindo o texto já existente na página com um tradutor gratuito.",
+  "author": "sTraw Studio",
+  "apiVersion": "1.0",
+  "entry": "index.js",
+  "icon": "translate",
+  "permissions": ["project:read", "project:write", "image:processing", "ai", "translate", "settings"],
+  "minAppVersion": "1.0.0"
+}

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Configurar Tradução</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="root">
+    <h1>Configurar tradução</h1>
+
+    <label for="geminiApiKey">Chave da API do Gemini (opcional)</label>
+    <input id="geminiApiKey" type="password" placeholder="Cole sua chave aqui - deixe em branco pra usar só o tradutor gratuito" />
+    <p class="hint">
+      Sem chave: o Gemini nunca é usado, tudo cai automaticamente no tradutor
+      gratuito (sem chave nenhuma), traduzindo o texto que já existir na página.
+      Com chave: o Gemini lê e traduz direto da imagem de cada balão/texto
+      detectado - funciona mesmo numa página sem nenhum texto digitado ainda.
+      Consiga uma chave em <span class="mono">aistudio.google.com/apikey</span>.
+    </p>
+
+    <label for="targetLang">Idioma de destino</label>
+    <input id="targetLang" type="text" placeholder="ex: en, pt, es, ja" />
+    <p class="hint">Código curto de idioma (o mesmo usado pelas APIs de tradução).</p>
+
+    <label for="geminiModel">Modelo Gemini (opcional)</label>
+    <input id="geminiModel" type="text" placeholder="em branco = mais recente automaticamente" />
+    <p class="hint">Deixe em branco pra usar sempre o Flash mais recente. Preencha só se quiser um modelo específico (ex: "gemini-3.1-flash-lite" pra priorizar custo/velocidade).</p>
+
+    <div class="actions">
+      <button id="btnSave">Salvar</button>
+      <span id="status"></span>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

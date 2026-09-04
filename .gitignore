@@ -6,7 +6,8 @@ node_modules/
 # nunca precisa ser versionada, gerada sob demanda
 dist-extensions/
 
-# o modelo de IA do Smart Cleaner (~200MB) - grande demais pro git,
-# baixado/copiado localmente na hora de gerar o pacote (ver
-# examples/smart-cleaner/build-package.js)
+# modelos de IA (Smart Cleaner ~200MB, Page Translator ~44MB) - grandes
+# demais pro git, baixados localmente na hora de gerar o pacote (ver
+# examples/smart-cleaner/build-package.js e
+# examples/page-translator/download-model.js)
 *.onnx
