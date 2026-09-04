@@ -24,6 +24,7 @@
     geminiApiKey: el('geminiApiKey'),
     targetLang: el('targetLang'),
     geminiModel: el('geminiModel'),
+    readingDirection: el('readingDirection'),
     btnSaveSettings: el('btnSaveSettings'),
     settingsStatus: el('settingsStatus'),
     pageLabel: el('pageLabel'),
@@ -34,6 +35,7 @@
     draftView: el('draftView'),
     btnTranslate: el('btnTranslate'),
     btnSaveDraft: el('btnSaveDraft'),
+    btnTestDraft: el('btnTestDraft'),
     btnSaveScript: el('btnSaveScript'),
     mainStatus: el('mainStatus'),
   };
@@ -60,6 +62,7 @@
   function setBusy(busy) {
     dom.btnTranslate.disabled = busy;
     dom.btnSaveDraft.disabled = busy;
+    dom.btnTestDraft.disabled = busy;
     dom.btnSaveScript.disabled = busy;
     dom.btnReload.disabled = busy;
     updateNavButtons(busy);
@@ -76,6 +79,7 @@
     dom.geminiApiKey.value = settings.geminiApiKey || '';
     dom.targetLang.value = settings.targetLang || 'en';
     dom.geminiModel.value = settings.geminiModel || '';
+    dom.readingDirection.value = settings.readingDirection === 'rtl' ? 'rtl' : 'ltr';
   }
 
   /** Carrega o estado de uma pagina no painel. `pageKey` omitido = usa a
@@ -108,6 +112,7 @@
         geminiApiKey: dom.geminiApiKey.value,
         targetLang: dom.targetLang.value,
         geminiModel: dom.geminiModel.value,
+        readingDirection: dom.readingDirection.value,
       });
       dom.settingsStatus.textContent = 'Salvo!';
       setTimeout(() => { dom.settingsStatus.textContent = ''; }, 2000);
@@ -157,6 +162,17 @@
     } finally {
       setBusy(false);
     }
+  });
+
+  // "Testar rascunho": so uma PREVIA local, sem chamar a API nem gravar
+  // nada - copia o rascunho pra caixa do roteiro ja normalizado no
+  // mesmo formato de blocos/linhas do .traw (textToLines + linesToText
+  // remove linhas em branco e espacos sobrando, igual aconteceria de
+  // verdade se fosse salvo), pra pessoa ver exatamente como vai ficar
+  // antes de decidir usar "Salvar roteiro".
+  dom.btnTestDraft.addEventListener('click', () => {
+    dom.scriptView.value = linesToText(textToLines(dom.draftView.value));
+    setMainStatus('Prévia aplicada na caixa do roteiro - nada foi salvo ainda.');
   });
 
   dom.btnSaveScript.addEventListener('click', async () => {

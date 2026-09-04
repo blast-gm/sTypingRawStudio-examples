@@ -25,6 +25,17 @@
         <label for="geminiModel">Modelo Gemini (opcional)</label>
         <input id="geminiModel" type="text" placeholder="em branco = Flash mais recente" />
 
+        <label for="readingDirection">Ordem de leitura dos balões (só afeta o modo Gemini)</label>
+        <select id="readingDirection">
+          <option value="ltr">Ocidental - esquerda → direita (comics)</option>
+          <option value="rtl">Mangá - direita → esquerda</option>
+        </select>
+        <p class="hint">
+          Define em que ordem os balões detectados na imagem viram linhas
+          do rascunho: agrupa por fileira (posição vertical aproximada) e
+          ordena cada fileira nessa direção.
+        </p>
+
         <div class="actions">
           <button id="btnSaveSettings">Salvar configurações</button>
           <span id="settingsStatus" class="status"></span>
@@ -55,6 +66,7 @@
     <div class="actions main">
       <button id="btnTranslate">Traduzir esta página</button>
       <button id="btnSaveDraft" class="secondary">Salvar rascunho</button>
+      <button id="btnTestDraft" class="secondary" title="Copia o rascunho pra área do roteiro só como prévia - não grava nada">Testar rascunho</button>
       <button id="btnSaveScript" class="confirm">Salvar roteiro</button>
     </div>
     <p id="mainStatus" class="status"></p>

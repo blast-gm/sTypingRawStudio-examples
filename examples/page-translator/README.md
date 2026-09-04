@@ -19,7 +19,17 @@ confirmar.
   traduz, linha por linha, o **roteiro oficial já existente** da
   página (`script.traw`). Não dá pra "ler" texto de uma imagem sem um
   modelo de visão, então esse caminho só funciona se a página já tiver
-  roteiro.
+  roteiro. Uma linha com vários balões separados por `" / "` (formato
+  padrão do `.traw`) tem cada parte traduzida **separadamente** e
+  rejuntada com `" / "` de volta, em vez de mandar a linha inteira
+  (barra incluída) pro tradutor de uma vez - preserva a separação
+  entre balões no resultado.
+
+A ordem em que os balões detectados pelo Gemini viram linhas do
+rascunho segue a **direção de leitura** escolhida nas Configurações:
+agrupa os balões por fileira aproximada (posição vertical) e ordena
+cada fileira da esquerda pra direita (padrão ocidental, comics) ou da
+direita pra esquerda (padrão mangá).
 
 ## Onde fica o resultado (rascunho → roteiro)
 
@@ -59,9 +69,12 @@ pra navegação).
    gerado e salvo automaticamente.
 5. Revise/edite o texto do rascunho à vontade - "Salvar rascunho" grava
    as edições sem tocar no roteiro oficial.
-6. Copie o que quiser pro roteiro (à direita) e clique em **"Salvar
-   roteiro"** pra aplicar de verdade na página.
-7. Use **"◀ Anterior"** / **"Próxima ▶"** no topo do painel pra passar
+6. Clique em **"Testar rascunho"** pra ver como o rascunho ficaria no
+   roteiro, no mesmo formato de blocos/linhas do `.traw` - copia o
+   texto pra caixa da direita só como prévia, **sem gravar nada**.
+7. Se estiver satisfeito, clique em **"Salvar roteiro"** pra aplicar de
+   verdade na página (o que estiver na caixa da direita nesse momento).
+8. Use **"◀ Anterior"** / **"Próxima ▶"** no topo do painel pra passar
    pelas páginas do projeto sem fechar a tela da extensão - dá pra ir
    traduzindo o projeto inteiro numa sessão só. "Recarregar" volta a
    mostrar a página que estiver aberta no editor no momento.
@@ -92,6 +105,8 @@ node examples/page-translator/build-package.js
   confirmado testando contra o modelo de verdade, não documentado
   explicitamente em lugar nenhum.
 - As regiões detectadas via Gemini viram uma linha de rascunho cada,
-  ordenadas de cima pra baixo (posição vertical) - não é uma ordem de
-  leitura "de quadrinho" completa (ex: direita-pra-esquerda em mangá),
-  é só um ponto de partida razoável pra revisão manual.
+  agrupadas em "fileiras" por proximidade vertical (baloes cuja
+  posição Y não difere mais que ~60% da altura média de um balão
+  contam como a mesma fileira) e ordenadas dentro de cada fileira pela
+  direção de leitura escolhida - uma aproximação razoável pra página
+  de quadrinho comum, não uma análise de layout completa.

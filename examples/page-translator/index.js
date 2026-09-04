@@ -22,13 +22,22 @@
  * - Com uma chave Gemini configurada: detecta balões/texto na imagem e
  *   manda TODOS os recortes numa ÚNICA chamada multimodal (lê e
  *   traduz direto da imagem - funciona mesmo sem nenhum texto digitado
- *   ainda). Uma linha de rascunho por região detectada, ordenadas de
- *   cima pra baixo.
+ *   ainda). Uma linha de rascunho por região detectada, na ordem de
+ *   LEITURA escolhida nas configurações: "ltr" (ocidental,
+ *   esquerda->direita) ou "rtl" (mangá, direita->esquerda) - ver
+ *   orderByReadingDirection.
  * - Sem chave (ou se a chamada falhar por qualquer motivo - cota,
  *   rede, chave inválida): traduz o ROTEIRO OFICIAL já existente da
  *   página, linha por linha, via tradutor gratuito (sem chave
- *   nenhuma). Não dá pra "ler" texto de uma imagem sem visão, então
- *   esse caminho só funciona se já houver roteiro pra essa página.
+ *   nenhuma), preservando os baloes separados por " / " dentro de cada
+ *   linha (formato padrao do .traw). Não dá pra "ler" texto de uma
+ *   imagem sem visão, então esse caminho só funciona se já houver
+ *   roteiro pra essa página.
+ *
+ * O botão "Testar rascunho" do painel copia o rascunho pra área do
+ * roteiro só como PRÉVIA (sem gravar nada) - útil pra ver como o texto
+ * vai ficar formatado em blocos, no mesmo padrão do roteiro oficial,
+ * antes de decidir usar "Salvar roteiro" de verdade.
  */
 module.exports = function (studio) {
   const MODEL_PATH = 'models/detector.onnx';
@@ -39,16 +48,61 @@ module.exports = function (studio) {
       geminiApiKey: studio.settings.get('geminiApiKey') || '',
       targetLang: studio.settings.get('targetLang') || 'en',
       geminiModel: studio.settings.get('geminiModel') || '',
+      // ordem de leitura usada pra sequenciar os baloes detectados pelo
+      // Gemini: "ltr" (ocidental, esquerda->direita - padrao de comics
+      // americanas/europeias) ou "rtl" (mangá, direita->esquerda)
+      readingDirection: studio.settings.get('readingDirection') === 'rtl' ? 'rtl' : 'ltr',
     };
   }
 
+  /** Ordena as regioes detectadas na ordem de LEITURA (nao so de cima
+   *  pra baixo): agrupa baloes que estao aproximadamente na mesma
+   *  "fileira" vertical (mesmo painel/linha da pagina) e, dentro de
+   *  cada fileira, ordena da esquerda pra direita ("ltr", padrao
+   *  ocidental) ou da direita pra esquerda ("rtl", padrao de mangá). A
+   *  altura media dos baloes detectados define o quao proximas duas
+   *  regioes precisam estar verticalmente pra contarem como "a mesma
+   *  fileira" - uma aproximacao razoavel pra pagina de quadrinho comum,
+   *  nao uma analise de layout completa. */
+  function orderByReadingDirection(regions, direction) {
+    if (!regions.length) return [];
+
+    const sorted = [...regions].sort((a, b) => a.box.y - b.box.y);
+    const avgHeight = sorted.reduce((sum, r) => sum + r.box.height, 0) / sorted.length;
+    const rowThreshold = avgHeight * 0.6;
+
+    const rows = [];
+    let currentRow = [sorted[0]];
+    let rowStartY = sorted[0].box.y;
+
+    for (let i = 1; i < sorted.length; i++) {
+      const region = sorted[i];
+      if (region.box.y - rowStartY <= rowThreshold) {
+        currentRow.push(region);
+      } else {
+        rows.push(currentRow);
+        currentRow = [region];
+        rowStartY = region.box.y;
+      }
+    }
+    rows.push(currentRow);
+
+    const sign = direction === 'rtl' ? -1 : 1;
+    for (const row of rows) {
+      row.sort((a, b) => sign * (a.box.x - b.box.x));
+    }
+
+    return rows.flat();
+  }
+
   /** Detecta regiões, manda todas numa unica chamada multimodal pro
-   *  Gemini, devolve as linhas traduzidas ordenadas de cima pra baixo
-   *  (mesma ordem de leitura vertical). Lanca erro se o Gemini falhar
-   *  por qualquer motivo (cota, chave, rede, resposta mal formada). */
-  async function draftViaGemini(imageBase64, apiKey, targetLang, model) {
+   *  Gemini, devolve as linhas traduzidas na ordem de leitura escolhida
+   *  (ver orderByReadingDirection). Lanca erro se o Gemini falhar por
+   *  qualquer motivo (cota, chave, rede, resposta mal formada). */
+  async function draftViaGemini(imageBase64, apiKey, targetLang, model, readingDirection) {
     const detections = await studio.image.detectText(imageBase64, MODEL_PATH, { confidence: 0.5 });
-    const regions = detections.filter((d) => TEXT_CLASSES.includes(d.class)).sort((a, b) => a.box.y - b.box.y);
+    const detected = detections.filter((d) => TEXT_CLASSES.includes(d.class));
+    const regions = orderByReadingDirection(detected, readingDirection);
 
     if (!regions.length) return [];
 
@@ -85,13 +139,26 @@ module.exports = function (studio) {
   /** Traduz o roteiro OFICIAL ja existente da pagina, linha por linha,
    *  via tradutor gratuito - fallback quando nao ha chave Gemini (ou
    *  ela falhou). Devolve [] se a pagina nao tiver roteiro nenhum
-   *  ainda (nada pra traduzir sem visao). */
+   *  ainda (nada pra traduzir sem visao).
+   *
+   *  Cada LINHA do script.traw pode conter varios baloes separados por
+   *  " / " (formato padrao do .traw, ver packages/core/src/trawScript.js
+   *  "splitParts") - traduzir a linha inteira de uma vez mandaria essa
+   *  barra pro tradutor junto do texto, arriscando ele tratar tudo como
+   *  uma frase so e perder a separacao. Por isso traduz cada PARTE
+   *  separadamente e junta de volta com " / ", preservando o mesmo
+   *  bloco/formatacao da linha original no rascunho. */
   async function draftViaFreeTranslate(existingScriptLines, targetLang) {
     const draft = [];
     for (const line of existingScriptLines) {
       if (!line || !line.trim()) continue;
-      const result = await studio.translate.free(line, targetLang);
-      draft.push((result.text || '').trim());
+      const parts = line.split('/').map((p) => p.trim()).filter(Boolean);
+      const translatedParts = [];
+      for (const part of parts) {
+        const result = await studio.translate.free(part, targetLang);
+        translatedParts.push((result.text || '').trim());
+      }
+      draft.push(translatedParts.join(' / '));
     }
     return draft;
   }
@@ -152,6 +219,7 @@ module.exports = function (studio) {
               studio.settings.set('geminiApiKey', (msg.geminiApiKey || '').trim());
               studio.settings.set('targetLang', (msg.targetLang || 'en').trim());
               studio.settings.set('geminiModel', (msg.geminiModel || '').trim());
+              studio.settings.set('readingDirection', msg.readingDirection === 'rtl' ? 'rtl' : 'ltr');
               return { ok: true };
             }
 
@@ -160,7 +228,7 @@ module.exports = function (studio) {
             }
 
             case 'run-detection': {
-              const { geminiApiKey, targetLang, geminiModel } = getSettings();
+              const { geminiApiKey, targetLang, geminiModel, readingDirection } = getSettings();
               const state = await loadPageState(msg.pageKey);
               const pageKey = state.pageKey;
               let draft = [];
@@ -170,7 +238,7 @@ module.exports = function (studio) {
                 try {
                   const variant = state.hasRaw ? 'raw' : 'pages';
                   const imageBase64 = await studio.project.readPageImage(pageKey, variant);
-                  draft = await draftViaGemini(imageBase64, geminiApiKey, targetLang, geminiModel);
+                  draft = await draftViaGemini(imageBase64, geminiApiKey, targetLang, geminiModel, readingDirection);
                   usedMode = 'gemini';
                 } catch (err) {
                   studio.log.warn('Gemini falhou - caindo pro tradutor gratuito (roteiro já existente):', err.message);
