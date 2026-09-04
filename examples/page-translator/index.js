@@ -1,88 +1,53 @@
 /**
  * Page Translator - detecta balões/texto numa página (modelo local
- * ogkalu/comic-text-and-bubble-detector, RT-DETRv2 via ONNX) e traduz:
+ * ogkalu/comic-text-and-bubble-detector, RT-DETRv2 via ONNX) e produz
+ * um RASCUNHO de tradução, revisável e editável, ANTES de qualquer
+ * coisa virar "oficial":
  *
- * - Com uma chave Gemini configurada (aba Extensões → "Configurar
- *   tradução"): manda o recorte de TODAS as regiões detectadas numa
- *   ÚNICA chamada multimodal (uma imagem por região, um só request) -
- *   funciona mesmo numa página só com "raw" (sem nenhum texto digitado
- *   ainda). Uma única chamada em vez de uma por região é proposital:
- *   evita bater na cota da API (sobretudo no tier gratuito) só porque
- *   uma página tem várias falas.
- * - Se essa chamada falhar por QUALQUER motivo (cota excedida, chave
- *   inválida, rede) - ou se não houver chave nenhuma configurada -
- *   cai automaticamente pro tradutor gratuito (sem chave nenhuma),
- *   traduzindo o TEXTO que já existir nas caixas atuais da página nas
- *   posições onde o detector encontrou uma região (não dá pra "ler"
- *   texto de uma imagem sem um modelo de visão, então esse caminho só
- *   funciona pra texto que já esteja digitado).
+ * - Rascunho (translate.traw): gravado via studio.project.writeTranslateDraft -
+ *   um arquivo IRMÃO do script.traw, dentro do próprio .ztraw, que
+ *   acumula página por página conforme a pessoa for traduzindo -
+ *   sobrevive a fechar/reabrir o app (persiste quando o projeto é
+ *   salvo). Só esta extensão lê/escreve nele por enquanto.
+ * - Confirmar (studio.project.writeScript): promove o rascunho da
+ *   página atual pro roteiro OFICIAL (script.traw) - o que passa a
+ *   aparecer no painel "Roteiro da página" do editor e conta como o
+ *   diálogo de verdade dali pra frente.
+ *
+ * Como o rascunho é gerado:
+ * - Com uma chave Gemini configurada: detecta balões/texto na imagem e
+ *   manda TODOS os recortes numa ÚNICA chamada multimodal (lê e
+ *   traduz direto da imagem - funciona mesmo sem nenhum texto digitado
+ *   ainda). Uma linha de rascunho por região detectada, ordenadas de
+ *   cima pra baixo.
+ * - Sem chave (ou se a chamada falhar por qualquer motivo - cota,
+ *   rede, chave inválida): traduz o ROTEIRO OFICIAL já existente da
+ *   página, linha por linha, via tradutor gratuito (sem chave
+ *   nenhuma). Não dá pra "ler" texto de uma imagem sem visão, então
+ *   esse caminho só funciona se já houver roteiro pra essa página.
  */
 module.exports = function (studio) {
   const MODEL_PATH = 'models/detector.onnx';
   const TEXT_CLASSES = ['text_bubble', 'text_free'];
 
-  function randomId() {
-    return Math.random().toString(36).slice(2, 12);
-  }
-
   function getSettings() {
     return {
       geminiApiKey: studio.settings.get('geminiApiKey') || '',
       targetLang: studio.settings.get('targetLang') || 'en',
-      // opcional - em branco usa o default do Core (alias sempre
-      // atualizado, ver docs/extensions/ai.md); preencher so se quiser
-      // um modelo Gemini especifico (ex: "gemini-3.1-flash-lite" pra
-      // priorizar custo/velocidade sobre qualidade).
       geminiModel: studio.settings.get('geminiModel') || '',
     };
   }
 
-  function boxesOverlap(a, b) {
-    // considera "a mesma regiao" se o CENTRO de "b" cai dentro de "a"
-    // (ou vice-versa) - mais tolerante a pequenas diferencas de recorte
-    // entre o detector e uma caixa de texto ja existente do que exigir
-    // IoU alto
-    const bCenterX = b.x + b.width / 2;
-    const bCenterY = b.y + b.height / 2;
-    const aCenterX = a.x + a.width / 2;
-    const aCenterY = a.y + a.height / 2;
-    const bInsideA = bCenterX >= a.x && bCenterX <= a.x + a.width && bCenterY >= a.y && bCenterY <= a.y + a.height;
-    const aInsideB = aCenterX >= b.x && aCenterX <= b.x + b.width && aCenterY >= b.y && aCenterY <= b.y + b.height;
-    return bInsideA || aInsideB;
-  }
+  /** Detecta regiões, manda todas numa unica chamada multimodal pro
+   *  Gemini, devolve as linhas traduzidas ordenadas de cima pra baixo
+   *  (mesma ordem de leitura vertical). Lanca erro se o Gemini falhar
+   *  por qualquer motivo (cota, chave, rede, resposta mal formada). */
+  async function draftViaGemini(imageBase64, apiKey, targetLang, model) {
+    const detections = await studio.image.detectText(imageBase64, MODEL_PATH, { confidence: 0.5 });
+    const regions = detections.filter((d) => TEXT_CLASSES.includes(d.class)).sort((a, b) => a.box.y - b.box.y);
 
-  function buildTextBox(box, text) {
-    return {
-      id: randomId(),
-      text,
-      x: box.x,
-      y: box.y,
-      width: box.width,
-      height: box.height,
-      rotation: 0,
-      style: {
-        font: 'Arial',
-        size: Math.max(10, Math.round(Math.min(box.width, box.height) * 0.22)),
-        bold: false,
-        italic: false,
-        underline: false,
-        align: 'center',
-        letterSpacing: 0,
-        lineSpacing: 0,
-        strokeEnabled: true,
-        strokeWidth: 2,
-        textColor: '#000000',
-        strokeColor: '#ffffff',
-      },
-    };
-  }
+    if (!regions.length) return [];
 
-  /** Recorta TODAS as regiões e manda numa ÚNICA chamada multimodal -
-   *  devolve um array de strings traduzidas, na MESMA ordem de
-   *  `regions` (string vazia = sem texto legível naquela região).
-   *  Lança erro se o Gemini falhar (cota, chave, rede, resposta num
-   *  formato inesperado) - quem chama decide o fallback. */
-  async function translateAllViaGemini(imageBase64, regions, apiKey, targetLang, model) {
     const crops = [];
     for (const region of regions) {
       crops.push(await studio.image.cropRegion(imageBase64, region.box));
@@ -99,8 +64,6 @@ module.exports = function (studio) {
     if (model) opts.model = model;
     const result = await studio.ai.gemini(prompt, apiKey, opts);
 
-    // o Gemini as vezes embrulha JSON em ```json ... ``` mesmo pedindo
-    // pra nao fazer isso - tira isso antes de tentar parsear
     const cleaned = (result.text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
     let parsed;
     try {
@@ -112,127 +75,127 @@ module.exports = function (studio) {
       throw new Error(`Gemini devolveu ${Array.isArray(parsed) ? parsed.length : typeof parsed} item(ns), esperava ${regions.length}`);
     }
 
-    return parsed.map((t) => (typeof t === 'string' ? t.trim() : ''));
+    return parsed.map((t) => (typeof t === 'string' ? t.trim() : '')).filter((t) => t);
   }
 
-  async function translateExistingText(existingLayout, region, targetLang) {
-    const match = existingLayout.find((b) => b.text && b.text.trim() && boxesOverlap(region.box, b));
-    if (!match) return null;
-    const result = await studio.translate.free(match.text, targetLang);
-    return { text: (result.text || '').trim(), replaceId: match.id };
+  /** Traduz o roteiro OFICIAL ja existente da pagina, linha por linha,
+   *  via tradutor gratuito - fallback quando nao ha chave Gemini (ou
+   *  ela falhou). Devolve [] se a pagina nao tiver roteiro nenhum
+   *  ainda (nada pra traduzir sem visao). */
+  async function draftViaFreeTranslate(existingScriptLines, targetLang) {
+    const draft = [];
+    for (const line of existingScriptLines) {
+      if (!line || !line.trim()) continue;
+      const result = await studio.translate.free(line, targetLang);
+      draft.push((result.text || '').trim());
+    }
+    return draft;
+  }
+
+  async function loadPageState(pageKey) {
+    const info = await studio.project.getInfo();
+    const page = info.pages.find((p) => p.key === pageKey);
+    const [script, draft] = await Promise.all([
+      studio.project.readScript(pageKey),
+      studio.project.readTranslateDraft(pageKey),
+    ]);
+    return {
+      pageKey,
+      hasRaw: Boolean(page && page.hasRaw),
+      hasPageImage: Boolean(page && page.hasPageImage),
+      script,
+      draft,
+    };
   }
 
   studio.menu.register({
-    id: 'page-translator.configure',
-    name: 'Configurar tradução',
-    icon: 'gear',
-    action() {
-      studio.ui.openPanel({
-        title: 'Configurar Tradução de Página',
-        htmlFile: 'ui/index.html',
-        onMessage(msg) {
-          if (msg && msg.type === 'get-settings') return getSettings();
-          if (msg && msg.type === 'save-settings') {
-            studio.settings.set('geminiApiKey', (msg.geminiApiKey || '').trim());
-            studio.settings.set('targetLang', (msg.targetLang || 'en').trim());
-            studio.settings.set('geminiModel', (msg.geminiModel || '').trim());
-            return { ok: true };
-          }
-          throw new Error(`Page Translator: mensagem desconhecida "${msg && msg.type}"`);
-        },
-      });
-    },
-  });
-
-  studio.menu.register({
-    id: 'page-translator.translate',
+    id: 'page-translator.open',
     name: 'Traduzir página',
     icon: 'translate',
-    async action() {
-      const { geminiApiKey, targetLang, geminiModel } = getSettings();
-
-      const current = await studio.project.getCurrentPage();
-      if (!current.pageKey) {
-        studio.dialog.show('Abra um projeto (com uma página selecionada) antes de traduzir.');
-        return;
-      }
-
-      const info = await studio.project.getInfo();
-      const page = info.pages.find((p) => p.key === current.pageKey);
-      const variant = page && page.hasRaw ? 'raw' : 'pages';
-
-      const imageBase64 = await studio.project.readPageImage(current.pageKey, variant);
-
-      studio.log.info('detectando baloes/texto...');
-      const detections = await studio.image.detectText(imageBase64, MODEL_PATH, { confidence: 0.5 });
-      const regions = detections.filter((d) => TEXT_CLASSES.includes(d.class));
-
-      if (!regions.length) {
-        studio.dialog.show('Nenhum texto/balão detectado nessa página.');
-        return;
-      }
-
-      // tenta o Gemini UMA VEZ, pra TODAS as regioes juntas - se falhar
-      // por qualquer motivo (cota, chave, rede, resposta mal formada),
-      // "geminiTexts" fica null e todo mundo cai pro tradutor gratuito
-      // (texto ja existente), sem gastar mais nenhuma chamada de IA
-      let geminiTexts = null;
-      let usedMode = 'tradutor gratuito (texto já existente na página)';
-      if (geminiApiKey) {
-        try {
-          geminiTexts = await translateAllViaGemini(imageBase64, regions, geminiApiKey, targetLang, geminiModel);
-          usedMode = 'Gemini (IA + OCR direto da imagem, 1 chamada pra página inteira)';
-        } catch (err) {
-          studio.log.warn('Gemini falhou pro lote inteiro - caindo pro tradutor gratuito:', err.message);
-        }
-      }
-
-      const existingLayout = await studio.project.readLayout(current.pageKey);
-      const usedExistingIds = new Set();
-      const newBoxes = [];
-      let translatedCount = 0;
-      let skippedCount = 0;
-
-      for (let i = 0; i < regions.length; i++) {
-        const region = regions[i];
-        try {
-          if (geminiTexts) {
-            const text = geminiTexts[i];
-            if (text) {
-              newBoxes.push(buildTextBox(region.box, text));
-              translatedCount++;
-            } else {
-              skippedCount++;
-            }
-          } else {
-            const result = await translateExistingText(existingLayout, region, targetLang);
-            if (result && result.text) {
-              usedExistingIds.add(result.replaceId);
-              const box = buildTextBox(region.box, result.text);
-              box.id = result.replaceId; // atualiza a caixa existente no lugar, em vez de duplicar
-              newBoxes.push(box);
-              translatedCount++;
-            } else {
-              skippedCount++;
-            }
+    action() {
+      studio.ui.openPanel({
+        title: 'Page Translator',
+        htmlFile: 'ui/index.html',
+        async onMessage(msg) {
+          if (!msg || typeof msg.type !== 'string') {
+            throw new Error('Page Translator: mensagem sem "type"');
           }
-        } catch (err) {
-          studio.log.warn(`falha traduzindo regiao [${region.box.x},${region.box.y}]:`, err.message);
-          skippedCount++;
-        }
-      }
 
-      // combina: caixas existentes que NAO foram substituidas + as
-      // novas/atualizadas
-      const keptExisting = existingLayout.filter((b) => !usedExistingIds.has(b.id));
-      await studio.project.writeLayout(current.pageKey, [...keptExisting, ...newBoxes]);
+          switch (msg.type) {
+            case 'get-settings':
+              return getSettings();
 
-      await studio.editor.refresh();
+            case 'save-settings': {
+              studio.settings.set('geminiApiKey', (msg.geminiApiKey || '').trim());
+              studio.settings.set('targetLang', (msg.targetLang || 'en').trim());
+              studio.settings.set('geminiModel', (msg.geminiModel || '').trim());
+              return { ok: true };
+            }
 
-      studio.dialog.show(
-        `Tradução concluída via ${usedMode}.\n` +
-          `${regions.length} região(ões) detectada(s) - ${translatedCount} traduzida(s), ${skippedCount} sem texto/pulada(s).`
-      );
+            case 'get-page-state': {
+              const current = await studio.project.getCurrentPage();
+              if (!current.pageKey) throw new Error('Nenhuma página aberta no editor no momento.');
+              return loadPageState(current.pageKey);
+            }
+
+            case 'run-detection': {
+              const { geminiApiKey, targetLang, geminiModel } = getSettings();
+              const current = await studio.project.getCurrentPage();
+              if (!current.pageKey) throw new Error('Nenhuma página aberta no editor no momento.');
+
+              const state = await loadPageState(current.pageKey);
+              let draft = [];
+              let usedMode;
+
+              if (geminiApiKey) {
+                try {
+                  const variant = state.hasRaw ? 'raw' : 'pages';
+                  const imageBase64 = await studio.project.readPageImage(current.pageKey, variant);
+                  draft = await draftViaGemini(imageBase64, geminiApiKey, targetLang, geminiModel);
+                  usedMode = 'gemini';
+                } catch (err) {
+                  studio.log.warn('Gemini falhou - caindo pro tradutor gratuito (roteiro já existente):', err.message);
+                }
+              }
+
+              if (!draft.length && usedMode !== 'gemini') {
+                if (!state.script.length) {
+                  throw new Error(
+                    geminiApiKey
+                      ? 'O Gemini falhou e esta página ainda não tem roteiro nenhum pra usar como fallback.'
+                      : 'Sem chave Gemini configurada, e esta página ainda não tem roteiro nenhum pra traduzir - configure uma chave, ou digite/importe o roteiro original primeiro.'
+                  );
+                }
+                draft = await draftViaFreeTranslate(state.script, targetLang);
+                usedMode = 'free';
+              }
+
+              await studio.project.writeTranslateDraft(current.pageKey, draft);
+              return { draft, usedMode };
+            }
+
+            case 'save-draft': {
+              await studio.project.writeTranslateDraft(msg.pageKey, msg.lines || []);
+              return { ok: true };
+            }
+
+            case 'confirm': {
+              const lines = msg.lines || [];
+              // grava tambem no rascunho, pra translate.traw nunca ficar
+              // divergente do que acabou de ser confirmado no script.traw -
+              // a pessoa pode ter editado o texto direto na caixa antes de
+              // confirmar, sem clicar em "Salvar rascunho" antes
+              await studio.project.writeTranslateDraft(msg.pageKey, lines);
+              await studio.project.writeScript(msg.pageKey, lines);
+              await studio.editor.refresh();
+              return { ok: true };
+            }
+
+            default:
+              throw new Error(`Page Translator: mensagem desconhecida "${msg.type}"`);
+          }
+        },
+      });
     },
   });
 };
