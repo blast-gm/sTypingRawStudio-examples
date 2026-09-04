@@ -43,11 +43,13 @@ vai pra um **rascunho** (`translate.traw`, um arquivo irmão do
 - fica visível e editável no painel da extensão, **à esquerda** - você
   pode revisar e corrigir o texto antes de qualquer coisa "valer";
 - o roteiro **oficial** da página (`script.traw`, o mesmo texto do
-  painel "Roteiro da página" do editor) fica **à direita**, também
-  editável - clicar em **"Salvar roteiro"** grava o que estiver nessa
-  caixa como o roteiro de verdade da página, e recarrega o editor na
-  hora (`studio.editor.refresh()`) pra você ver o resultado sem
-  precisar trocar de página nem reabrir o projeto.
+  painel "Roteiro da página" do editor) fica **à direita**, no mesmo
+  estilo visual de blocos do editor principal (uma fileira por linha,
+  uma caixa por balão separado por `" / "` dentro dela) - cada caixa é
+  editável, clicar em **"Salvar roteiro"** grava o conteúdo de todas
+  como o roteiro de verdade da página, e recarrega o editor na hora
+  (`studio.editor.refresh()`) pra você ver o resultado sem precisar
+  trocar de página nem reabrir o projeto.
 
 Mostra praticamente toda a Extension API de IA/imagem/rascunho em uso:
 `studio.image.detectText`, `studio.image.cropRegion`, `studio.ai.gemini`

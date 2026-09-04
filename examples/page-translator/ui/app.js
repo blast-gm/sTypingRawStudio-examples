@@ -54,6 +54,63 @@
     return text.split('\n').map((l) => l.trim()).filter((l) => l);
   }
 
+  function autoResizeChip(chip) {
+    chip.style.height = 'auto';
+    chip.style.height = chip.scrollHeight + 'px';
+  }
+
+  /** Renderiza o roteiro no MESMO formato visual do painel "Roteiro da
+   *  página" do editor principal: cada linha do .traw vira uma fileira
+   *  (.script-row), e cada parte separada por "/" dentro da linha vira
+   *  uma caixa (.script-chip) editável dentro dela - assim a pessoa ve
+   *  exatamente como o texto vai ficar em blocos, no padrao do .traw,
+   *  em vez de uma barra de texto crua. */
+  function renderScriptChips(lines) {
+    dom.scriptView.innerHTML = '';
+    const nonEmpty = (lines || []).filter((l) => l && l.trim());
+
+    if (!nonEmpty.length) {
+      const empty = document.createElement('div');
+      empty.className = 'script-empty';
+      empty.textContent = '(sem roteiro ainda nesta página)';
+      dom.scriptView.appendChild(empty);
+      return;
+    }
+
+    nonEmpty.forEach((line) => {
+      const parts = line.split('/').map((p) => p.trim()).filter(Boolean);
+      const row = document.createElement('div');
+      row.className = 'script-row';
+
+      (parts.length ? parts : ['']).forEach((part) => {
+        const chip = document.createElement('textarea');
+        chip.className = 'script-chip';
+        chip.rows = 1;
+        chip.value = part;
+        chip.addEventListener('input', () => autoResizeChip(chip));
+        row.appendChild(chip);
+      });
+
+      dom.scriptView.appendChild(row);
+    });
+
+    // auto-ajusta a altura de cada caixa ao texto (pode ter varias
+    // linhas, como no exemplo de referencia) - so depois de montado no
+    // DOM, senao scrollHeight ainda nao reflete o layout final
+    requestAnimationFrame(() => {
+      dom.scriptView.querySelectorAll('.script-chip').forEach(autoResizeChip);
+    });
+  }
+
+  /** Le de volta o roteiro editado nas caixas - cada fileira vira uma
+   *  linha do .traw, com as partes rejuntadas por " / ". */
+  function readScriptChips() {
+    const rows = Array.from(dom.scriptView.querySelectorAll('.script-row'));
+    return rows
+      .map((row) => Array.from(row.querySelectorAll('.script-chip')).map((chip) => chip.value.trim()).filter(Boolean).join(' / '))
+      .filter((line) => line.trim());
+  }
+
   function setMainStatus(text, isError) {
     dom.mainStatus.textContent = text;
     dom.mainStatus.classList.toggle('error', Boolean(isError));
@@ -93,7 +150,7 @@
       currentPageKey = state.pageKey;
       pageKeys = state.pageKeys || [];
       dom.pageLabel.textContent = `Página: ${state.pageKey}`;
-      dom.scriptView.value = linesToText(state.script);
+      renderScriptChips(state.script);
       dom.draftView.value = linesToText(state.draft);
       setMainStatus('');
     } catch (err) {
@@ -165,13 +222,11 @@
   });
 
   // "Testar rascunho": so uma PREVIA local, sem chamar a API nem gravar
-  // nada - copia o rascunho pra caixa do roteiro ja normalizado no
-  // mesmo formato de blocos/linhas do .traw (textToLines + linesToText
-  // remove linhas em branco e espacos sobrando, igual aconteceria de
-  // verdade se fosse salvo), pra pessoa ver exatamente como vai ficar
-  // antes de decidir usar "Salvar roteiro".
+  // nada - renderiza o rascunho no formato de blocos/caixas do roteiro
+  // (uma fileira por linha do rascunho), pra pessoa ver exatamente como
+  // vai ficar antes de decidir usar "Salvar roteiro".
   dom.btnTestDraft.addEventListener('click', () => {
-    dom.scriptView.value = linesToText(textToLines(dom.draftView.value));
+    renderScriptChips(textToLines(dom.draftView.value));
     setMainStatus('Prévia aplicada na caixa do roteiro - nada foi salvo ainda.');
   });
 
@@ -180,9 +235,9 @@
     setBusy(true);
     setMainStatus('Salvando roteiro...');
     try {
-      const lines = textToLines(dom.scriptView.value);
+      const lines = readScriptChips();
       await callStudio({ type: 'confirm', pageKey: currentPageKey, lines });
-      dom.scriptView.value = linesToText(lines);
+      renderScriptChips(lines);
       setMainStatus('Roteiro salvo e aplicado na página.');
     } catch (err) {
       setMainStatus('Erro: ' + err.message, true);
