@@ -9,10 +9,14 @@
  *   acumula página por página conforme a pessoa for traduzindo -
  *   sobrevive a fechar/reabrir o app (persiste quando o projeto é
  *   salvo). Só esta extensão lê/escreve nele por enquanto.
- * - Confirmar (studio.project.writeScript): promove o rascunho da
- *   página atual pro roteiro OFICIAL (script.traw) - o que passa a
- *   aparecer no painel "Roteiro da página" do editor e conta como o
- *   diálogo de verdade dali pra frente.
+ * - "Salvar roteiro" (studio.project.writeScript): promove o rascunho
+ *   revisado pro roteiro OFICIAL (script.traw) e chama
+ *   studio.editor.refresh() - o editor recarrega a página e o painel
+ *   "Roteiro da página" já mostra o texto novo, sem precisar fechar e
+ *   reabrir o projeto.
+ * - O painel tem botões "◀ Anterior"/"Próxima ▶" pra trocar de página
+ *   SEM fechar a tela da extensão - útil pra ir traduzindo o projeto
+ *   inteiro, página por página, numa sessão só.
  *
  * Como o rascunho é gerado:
  * - Com uma chave Gemini configurada: detecta balões/texto na imagem e
@@ -92,8 +96,26 @@ module.exports = function (studio) {
     return draft;
   }
 
-  async function loadPageState(pageKey) {
+  /** Resolve qual pagina usar: a informada explicitamente pelo painel
+   *  (pra poder navegar entre paginas com os botoes Anterior/Próxima,
+   *  SEM sair da tela da extensao nem mudar a pagina exibida no editor)
+   *  ou, na falta dela, a que estiver aberta no editor no momento
+   *  (carga inicial do painel). */
+  async function resolvePageKey(info, requestedKey) {
+    if (requestedKey) {
+      if (!info.pageKeys.includes(requestedKey)) {
+        throw new Error(`Pagina "${requestedKey}" nao existe neste projeto.`);
+      }
+      return requestedKey;
+    }
+    const current = await studio.project.getCurrentPage();
+    if (!current.pageKey) throw new Error('Nenhuma página aberta no editor no momento.');
+    return current.pageKey;
+  }
+
+  async function loadPageState(requestedKey) {
     const info = await studio.project.getInfo();
+    const pageKey = await resolvePageKey(info, requestedKey);
     const page = info.pages.find((p) => p.key === pageKey);
     const [script, draft] = await Promise.all([
       studio.project.readScript(pageKey),
@@ -101,6 +123,7 @@ module.exports = function (studio) {
     ]);
     return {
       pageKey,
+      pageKeys: info.pageKeys,
       hasRaw: Boolean(page && page.hasRaw),
       hasPageImage: Boolean(page && page.hasPageImage),
       script,
@@ -133,24 +156,20 @@ module.exports = function (studio) {
             }
 
             case 'get-page-state': {
-              const current = await studio.project.getCurrentPage();
-              if (!current.pageKey) throw new Error('Nenhuma página aberta no editor no momento.');
-              return loadPageState(current.pageKey);
+              return loadPageState(msg.pageKey);
             }
 
             case 'run-detection': {
               const { geminiApiKey, targetLang, geminiModel } = getSettings();
-              const current = await studio.project.getCurrentPage();
-              if (!current.pageKey) throw new Error('Nenhuma página aberta no editor no momento.');
-
-              const state = await loadPageState(current.pageKey);
+              const state = await loadPageState(msg.pageKey);
+              const pageKey = state.pageKey;
               let draft = [];
               let usedMode;
 
               if (geminiApiKey) {
                 try {
                   const variant = state.hasRaw ? 'raw' : 'pages';
-                  const imageBase64 = await studio.project.readPageImage(current.pageKey, variant);
+                  const imageBase64 = await studio.project.readPageImage(pageKey, variant);
                   draft = await draftViaGemini(imageBase64, geminiApiKey, targetLang, geminiModel);
                   usedMode = 'gemini';
                 } catch (err) {
@@ -170,8 +189,8 @@ module.exports = function (studio) {
                 usedMode = 'free';
               }
 
-              await studio.project.writeTranslateDraft(current.pageKey, draft);
-              return { draft, usedMode };
+              await studio.project.writeTranslateDraft(pageKey, draft);
+              return { pageKey, draft, usedMode };
             }
 
             case 'save-draft': {

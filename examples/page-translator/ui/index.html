@@ -33,25 +33,29 @@
     </details>
 
     <div class="pageHeader">
-      <span id="pageLabel">Página: -</span>
+      <div class="pageNav">
+        <button id="btnPrevPage" class="ghost" title="Página anterior">◀ Anterior</button>
+        <span id="pageLabel">Página: -</span>
+        <button id="btnNextPage" class="ghost" title="Próxima página">Próxima ▶</button>
+      </div>
       <button id="btnReload" class="ghost" title="Recarregar com a página atual do editor">Recarregar</button>
     </div>
 
     <div class="columns">
       <div class="col">
-        <label>Roteiro atual (script.traw) - somente leitura</label>
-        <textarea id="scriptView" readonly placeholder="(sem roteiro ainda nesta página)"></textarea>
+        <label>Tradução (rascunho - translate.traw) - editável</label>
+        <textarea id="draftView" placeholder="(sem rascunho ainda - clique em Traduzir)"></textarea>
       </div>
       <div class="col">
-        <label>Rascunho de tradução (translate.traw) - editável</label>
-        <textarea id="draftView" placeholder="(sem rascunho ainda - clique em Traduzir)"></textarea>
+        <label>Roteiro da página (script.traw) - editável</label>
+        <textarea id="scriptView" placeholder="(sem roteiro ainda nesta página)"></textarea>
       </div>
     </div>
 
     <div class="actions main">
       <button id="btnTranslate">Traduzir esta página</button>
       <button id="btnSaveDraft" class="secondary">Salvar rascunho</button>
-      <button id="btnConfirm" class="confirm">Confirmar → aplicar no roteiro</button>
+      <button id="btnSaveScript" class="confirm">Salvar roteiro</button>
     </div>
     <p id="mainStatus" class="status"></p>
   </div>

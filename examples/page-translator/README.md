@@ -21,27 +21,31 @@ confirmar.
   modelo de visão, então esse caminho só funciona se a página já tiver
   roteiro.
 
-## Onde fica o resultado (rascunho → confirmar)
+## Onde fica o resultado (rascunho → roteiro)
 
-A tradução **não** é escrita direto no roteiro oficial nem nas caixas
-de texto da página. Ela vai pra um **rascunho** (`translate.traw`, um
-arquivo irmão do `script.traw`, dentro do próprio `.ztraw`) que:
+A tradução **não** é escrita direto nas caixas de texto da página. Ela
+vai pra um **rascunho** (`translate.traw`, um arquivo irmão do
+`script.traw`, dentro do próprio `.ztraw`) que:
 
 - acumula página por página conforme você for traduzindo, durante a
   mesma sessão de trabalho;
 - é salvo junto com o projeto (sobrevive a fechar/reabrir o app);
-- fica visível e editável no painel da extensão - você pode revisar e
-  corrigir o texto antes de qualquer coisa "valer";
-- só passa a ser o roteiro **oficial** da página quando você clica em
-  **"Confirmar → aplicar no roteiro"**, que grava no `script.traw` de
-  verdade (o mesmo texto do painel "Roteiro da página" do editor).
+- fica visível e editável no painel da extensão, **à esquerda** - você
+  pode revisar e corrigir o texto antes de qualquer coisa "valer";
+- o roteiro **oficial** da página (`script.traw`, o mesmo texto do
+  painel "Roteiro da página" do editor) fica **à direita**, também
+  editável - clicar em **"Salvar roteiro"** grava o que estiver nessa
+  caixa como o roteiro de verdade da página, e recarrega o editor na
+  hora (`studio.editor.refresh()`) pra você ver o resultado sem
+  precisar trocar de página nem reabrir o projeto.
 
 Mostra praticamente toda a Extension API de IA/imagem/rascunho em uso:
 `studio.image.detectText`, `studio.image.cropRegion`, `studio.ai.gemini`
 (multimodal, várias imagens numa chamada), `studio.translate.free`,
 `studio.project.readScript`/`writeScript`,
 `studio.project.readTranslateDraft`/`writeTranslateDraft`,
-`studio.editor.refresh`.
+`studio.editor.refresh`, `studio.project.getInfo` (lista de páginas,
+pra navegação).
 
 ## Usando
 
@@ -51,15 +55,16 @@ Mostra praticamente toda a Extension API de IA/imagem/rascunho em uso:
    cole uma chave Gemini e escolha o idioma de destino (código curto,
    ex: `en`, `pt`, `ja`). Deixe a chave em branco pra usar só o
    tradutor gratuito.
-4. Clique em **"Traduzir esta página"** - o rascunho é gerado e salvo
-   automaticamente.
-5. Revise/edite o texto na caixa "Rascunho de tradução" à vontade -
-   "Salvar rascunho" grava as edições sem tocar no roteiro oficial.
-6. Quando estiver satisfeito, clique em **"Confirmar → aplicar no
-   roteiro"** pra promover o rascunho ao `script.traw` oficial.
-7. Ao trocar de página no editor, clique em **"Recarregar"** no topo do
-   painel pra carregar o roteiro/rascunho da página atual (o painel não
-   acompanha a navegação automaticamente).
+4. Clique em **"Traduzir esta página"** - o rascunho (à esquerda) é
+   gerado e salvo automaticamente.
+5. Revise/edite o texto do rascunho à vontade - "Salvar rascunho" grava
+   as edições sem tocar no roteiro oficial.
+6. Copie o que quiser pro roteiro (à direita) e clique em **"Salvar
+   roteiro"** pra aplicar de verdade na página.
+7. Use **"◀ Anterior"** / **"Próxima ▶"** no topo do painel pra passar
+   pelas páginas do projeto sem fechar a tela da extensão - dá pra ir
+   traduzindo o projeto inteiro numa sessão só. "Recarregar" volta a
+   mostrar a página que estiver aberta no editor no momento.
 
 ## Preparando o modelo (pra empacotar/testar)
 

@@ -27,16 +27,22 @@
     btnSaveSettings: el('btnSaveSettings'),
     settingsStatus: el('settingsStatus'),
     pageLabel: el('pageLabel'),
+    btnPrevPage: el('btnPrevPage'),
+    btnNextPage: el('btnNextPage'),
     btnReload: el('btnReload'),
     scriptView: el('scriptView'),
     draftView: el('draftView'),
     btnTranslate: el('btnTranslate'),
     btnSaveDraft: el('btnSaveDraft'),
-    btnConfirm: el('btnConfirm'),
+    btnSaveScript: el('btnSaveScript'),
     mainStatus: el('mainStatus'),
   };
 
+  // pagina que o PAINEL esta mostrando/editando agora - independente da
+  // pagina exibida no editor principal por tras dele, pra dar pra
+  // avancar/voltar sem precisar sair da tela da extensao
   let currentPageKey = null;
+  let pageKeys = [];
 
   function linesToText(lines) {
     return (lines || []).join('\n');
@@ -51,11 +57,18 @@
     dom.mainStatus.classList.toggle('error', Boolean(isError));
   }
 
-  function setButtonsEnabled(enabled) {
-    dom.btnTranslate.disabled = !enabled;
-    dom.btnSaveDraft.disabled = !enabled;
-    dom.btnConfirm.disabled = !enabled;
-    dom.btnReload.disabled = !enabled;
+  function setBusy(busy) {
+    dom.btnTranslate.disabled = busy;
+    dom.btnSaveDraft.disabled = busy;
+    dom.btnSaveScript.disabled = busy;
+    dom.btnReload.disabled = busy;
+    updateNavButtons(busy);
+  }
+
+  function updateNavButtons(forceDisabled) {
+    const idx = pageKeys.indexOf(currentPageKey);
+    dom.btnPrevPage.disabled = Boolean(forceDisabled) || idx <= 0;
+    dom.btnNextPage.disabled = Boolean(forceDisabled) || idx === -1 || idx >= pageKeys.length - 1;
   }
 
   async function loadSettings() {
@@ -65,22 +78,24 @@
     dom.geminiModel.value = settings.geminiModel || '';
   }
 
-  async function loadPage() {
-    setMainStatus('Carregando página atual...');
-    setButtonsEnabled(false);
+  /** Carrega o estado de uma pagina no painel. `pageKey` omitido = usa a
+   *  pagina atual do editor (so na primeira carga); informado = navega
+   *  o painel pra essa pagina especifica (botoes Anterior/Próxima). */
+  async function loadPage(pageKey) {
+    setMainStatus('Carregando página...');
+    setBusy(true);
     try {
-      const state = await callStudio({ type: 'get-page-state' });
+      const state = await callStudio({ type: 'get-page-state', pageKey });
       currentPageKey = state.pageKey;
+      pageKeys = state.pageKeys || [];
       dom.pageLabel.textContent = `Página: ${state.pageKey}`;
       dom.scriptView.value = linesToText(state.script);
       dom.draftView.value = linesToText(state.draft);
       setMainStatus('');
     } catch (err) {
-      currentPageKey = null;
-      dom.pageLabel.textContent = 'Página: -';
       setMainStatus('Erro: ' + err.message, true);
     } finally {
-      setButtonsEnabled(true);
+      setBusy(false);
     }
   }
 
@@ -102,27 +117,37 @@
     }
   });
 
-  dom.btnReload.addEventListener('click', loadPage);
+  dom.btnReload.addEventListener('click', () => loadPage(currentPageKey));
+
+  dom.btnPrevPage.addEventListener('click', () => {
+    const idx = pageKeys.indexOf(currentPageKey);
+    if (idx > 0) loadPage(pageKeys[idx - 1]);
+  });
+
+  dom.btnNextPage.addEventListener('click', () => {
+    const idx = pageKeys.indexOf(currentPageKey);
+    if (idx !== -1 && idx < pageKeys.length - 1) loadPage(pageKeys[idx + 1]);
+  });
 
   dom.btnTranslate.addEventListener('click', async () => {
     if (!currentPageKey) return;
-    setButtonsEnabled(false);
+    setBusy(true);
     setMainStatus('Traduzindo...');
     try {
-      const result = await callStudio({ type: 'run-detection' });
+      const result = await callStudio({ type: 'run-detection', pageKey: currentPageKey });
       dom.draftView.value = linesToText(result.draft);
       const modeLabel = result.usedMode === 'gemini' ? 'via Gemini (imagem)' : 'via tradutor gratuito (roteiro existente)';
       setMainStatus(`Rascunho gerado ${modeLabel} e salvo.`);
     } catch (err) {
       setMainStatus('Erro: ' + err.message, true);
     } finally {
-      setButtonsEnabled(true);
+      setBusy(false);
     }
   });
 
   dom.btnSaveDraft.addEventListener('click', async () => {
     if (!currentPageKey) return;
-    setButtonsEnabled(false);
+    setBusy(true);
     setMainStatus('Salvando rascunho...');
     try {
       await callStudio({ type: 'save-draft', pageKey: currentPageKey, lines: textToLines(dom.draftView.value) });
@@ -130,23 +155,23 @@
     } catch (err) {
       setMainStatus('Erro: ' + err.message, true);
     } finally {
-      setButtonsEnabled(true);
+      setBusy(false);
     }
   });
 
-  dom.btnConfirm.addEventListener('click', async () => {
+  dom.btnSaveScript.addEventListener('click', async () => {
     if (!currentPageKey) return;
-    setButtonsEnabled(false);
-    setMainStatus('Aplicando no roteiro...');
+    setBusy(true);
+    setMainStatus('Salvando roteiro...');
     try {
-      const lines = textToLines(dom.draftView.value);
+      const lines = textToLines(dom.scriptView.value);
       await callStudio({ type: 'confirm', pageKey: currentPageKey, lines });
       dom.scriptView.value = linesToText(lines);
-      setMainStatus('Confirmado! O roteiro oficial desta página foi atualizado.');
+      setMainStatus('Roteiro salvo e aplicado na página.');
     } catch (err) {
       setMainStatus('Erro: ' + err.message, true);
     } finally {
-      setButtonsEnabled(true);
+      setBusy(false);
     }
   });
 

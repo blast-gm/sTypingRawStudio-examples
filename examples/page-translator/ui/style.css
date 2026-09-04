@@ -11,8 +11,9 @@ textarea { min-height: 260px; resize: vertical; line-height: 1.5; }
 .hint { font-size: 11px; color: #77778a; margin: 6px 0 0; line-height: 1.5; }
 .mono { font-family: monospace; }
 
-.pageHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-#pageLabel { font-size: 13px; color: #cfcfe0; font-weight: 600; }
+.pageHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 10px; }
+.pageNav { display: flex; align-items: center; gap: 10px; }
+#pageLabel { font-size: 13px; color: #cfcfe0; font-weight: 600; min-width: 90px; text-align: center; }
 
 .columns { display: flex; gap: 14px; }
 .col { flex: 1; min-width: 0; }
