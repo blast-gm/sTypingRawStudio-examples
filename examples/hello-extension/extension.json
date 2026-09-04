@@ -1,0 +1,12 @@
+{
+  "id": "hello-extension",
+  "name": "Hello Extension",
+  "version": "1.0.0",
+  "description": "Extensão de exemplo oficial do sTraw Studio - registra um item de menu que mostra um diálogo.",
+  "author": "sTraw Studio",
+  "apiVersion": "1.0",
+  "entry": "index.js",
+  "icon": "stars",
+  "permissions": [],
+  "minAppVersion": "1.0.0"
+}

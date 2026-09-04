@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Smart Cleaner</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="toolbar">
+    <div class="toolbar-group">
+      <label>Pincel</label>
+      <input id="brushSize" type="range" min="8" max="120" value="36" />
+      <span id="brushSizeLabel" class="mono">36px</span>
+    </div>
+    <div class="toolbar-group">
+      <button id="prevPageBtn" title="Página anterior" disabled>← Anterior</button>
+      <span id="pageLabel" class="mono">-</span>
+      <button id="nextPageBtn" title="Próxima página" disabled>Próxima →</button>
+    </div>
+    <div class="toolbar-group">
+      <button id="undoBtn" disabled>↶ Desfazer (Ctrl+Z)</button>
+      <button id="confirmBtn" class="primary" disabled>Confirmar página →</button>
+    </div>
+  </div>
+
+  <div id="canvasWrap">
+    <div id="emptyState" hidden>Nenhuma página com imagem "raw" neste projeto.</div>
+    <canvas id="imageCanvas"></canvas>
+    <canvas id="maskCanvas"></canvas>
+    <div id="statusOverlay" hidden>
+      <div class="spinner"></div>
+      <span id="statusText">Processando...</span>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

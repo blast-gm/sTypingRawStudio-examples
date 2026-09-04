@@ -1,0 +1,12 @@
+{
+  "id": "my-extension",
+  "name": "Minha Extensão",
+  "version": "1.0.0",
+  "description": "Descreva aqui o que a sua extensão faz.",
+  "author": "Seu Nome",
+  "apiVersion": "1.0",
+  "entry": "index.js",
+  "icon": "puzzle",
+  "permissions": [],
+  "minAppVersion": "1.0.0"
+}
