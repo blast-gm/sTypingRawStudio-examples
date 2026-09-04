@@ -19,7 +19,7 @@ própria**.
 |---|---|
 | [`extension-template/`](./extension-template) | O ponto de partida pra criar uma extensão nova - a estrutura mínima, comentada, sem fazer nada de útil por si só. É o mesmo `.zip` oferecido como "extensão base" pra download no sTraw Hub. |
 | [`examples/hello-extension/`](./examples/hello-extension) | O exemplo mais simples possível: registra um item de menu que mostra um diálogo. Duas dezenas de linhas, dá pra ler inteiro em um minuto. |
-| [`examples/smart-cleaner/`](./examples/smart-cleaner) | Exemplo real e completo, em produção: limpa páginas de mangá (remove texto/marcas da imagem original) usando inpainting local com IA (modelo LaMa via ONNX Runtime), com um painel próprio (canvas de pintura interativo), pincel dinâmico e desfazer. Mostra praticamente toda a Extension API em uso: painel customizado, leitura/escrita de imagem do projeto, processamento de imagem, navegação entre páginas. |
+| [`examples/smart-cleaner/`](./examples/smart-cleaner) | Exemplo real e completo, em produção: limpa páginas de mangá (remove texto/marcas da imagem original) usando inpainting local com IA (modelo LaMa via ONNX Runtime, GPU automática via DirectML/WebGPU quando disponível), com um painel próprio (canvas de pintura interativo), pincel dinâmico e desfazer. Mostra praticamente toda a Extension API em uso: painel customizado, leitura/escrita de imagem do projeto, processamento de imagem, navegação entre páginas. |
 
 ## Como uma extensão funciona (resumo)
 
@@ -45,11 +45,27 @@ A documentação completa - todos os campos do manifesto, cada módulo de
 `studio`, permissões, segurança, como publicar - fica em
 **[studio.blast.net.br/docs](https://studio.blast.net.br/docs)**.
 
-## Rodando os exemplos localmente
+## Testando os exemplos localmente
 
-Cada exemplo já é uma extensão pronta pra instalar - não precisa
-"rodar" nada, só empacotar em `.zip` e apontar o app pra ele (ou fazer
-upload no [sTraw Hub](https://studio.blast.net.br)).
+**Não precisa empacotar nada nem editar nada do app.** Cada pasta em
+`examples/` (e `extension-template/`) já é uma extensão pronta -
+clone este repositório e, na aba **Extensões** do sTraw Studio, use
+**"Escolher pasta..."** (seção "Em desenvolvimento") apontando pra
+`examples/` (ou pra este repositório inteiro) - toda subpasta com um
+`extension.json` válido fica ativa automaticamente, dá pra testar
+várias ao mesmo tempo. Depois de qualquer mudança, **"Recarregar"**
+reativa tudo sem precisar reiniciar o app. Guia completo:
+[studio.blast.net.br/docs/creating-an-extension](https://studio.blast.net.br/docs/creating-an-extension#4-teste-localmente---pasta-de-desenvolvimento).
+
+`examples/smart-cleaner` é a exceção - o modelo de IA (`lama_fp32.onnx`,
+~200MB) não fica neste repo, então essa pasta específica só funciona
+depois de baixá-lo (do [Carve/LaMa-ONNX](https://huggingface.co/Carve/LaMa-ONNX)
+no Hugging Face) pra dentro de `examples/smart-cleaner/models/`.
+
+## Empacotando (pra publicar)
+
+Só quando for publicar de verdade - até lá, o teste local acima já é
+suficiente pro ciclo de desenvolvimento inteiro.
 
 ```bash
 npm install
@@ -58,27 +74,23 @@ npm install
 npm run build:hello-extension
 
 # gera examples/smart-cleaner em dist-extensions/smart-cleaner-1.0.0.zip
-# (pede o caminho do modelo lama_fp32.onnx na primeira vez - ele NAO
-# fica neste repo, é grande demais; baixe o modelo Carve/LaMa-ONNX
-# a partir do Hugging Face: https://huggingface.co/Carve/LaMa-ONNX)
 node examples/smart-cleaner/build-package.js "/caminho/para/lama_fp32.onnx"
 ```
-
-Pra testar localmente sem publicar no Hub, edite o catálogo local do
-app principal (`packages/electron/extensions-catalog.sample.json` no
-repo do [sTraw Studio](https://github.com/blast-gm/sTypingRawStudio))
-apontando `download` pro `.zip` gerado em `dist-extensions/`.
 
 ## Publicando sua própria extensão
 
 1. Comece a partir de [`extension-template/`](./extension-template)
    (ou baixe direto em [studio.blast.net.br](https://studio.blast.net.br)).
-2. Edite `extension.json` e `index.js` com a lógica da sua extensão.
+2. Edite `extension.json` e `index.js` com a lógica da sua extensão,
+   testando pela [pasta de desenvolvimento](#testando-os-exemplos-localmente)
+   até estar satisfeito.
 3. Empacote tudo num `.zip` (`extension.json` **na raiz**, não dentro
-   de uma subpasta).
+   de uma subpasta) - ou só um `index.js`, se preferir: o Hub gera um
+   `extension.json` automaticamente a partir do título que você
+   preencher no upload.
 4. Crie uma conta grátis em [studio.blast.net.br](https://studio.blast.net.br)
    e publique - o site lê `id`/`version`/`apiVersion` direto do seu
-   `extension.json` automaticamente.
+   `extension.json` automaticamente (ou do que ele mesmo gerou).
 
 Guia completo: [studio.blast.net.br/docs](https://studio.blast.net.br/docs).
 
