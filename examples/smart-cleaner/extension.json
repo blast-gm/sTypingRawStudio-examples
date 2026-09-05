@@ -1,7 +1,7 @@
 {
   "id": "smart-cleaner",
   "name": "Smart Cleaner",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Limpa páginas (remove texto/marcas da imagem original) usando inpainting local com IA (LaMa) - pinte com o mouse e a área é reconstruída automaticamente ao soltar.",
   "author": "sTraw Studio",
   "apiVersion": "1.0",
