@@ -71,10 +71,10 @@
   // margem pra imagem nunca encostar exatamente na borda do wrap
   const DISPLAY_PADDING = 24;
 
-  // lista de TODAS as paginas com raw (nao so as pendentes) + o indice
-  // da que esta aberta agora - permite ir e voltar livremente (ver
-  // goToPage/prevPage/nextPage), nao so avancar conforme confirma. Cada
-  // item: { key, hasPageImage }.
+  // lista de TODAS as paginas editaveis (com raw e/ou pages, nao so as
+  // pendentes) + o indice da que esta aberta agora - permite ir e
+  // voltar livremente (ver goToPage/prevPage/nextPage), nao so avancar
+  // conforme confirma. Cada item: { key, hasPageImage }.
   let pageList = [];
   let pageIndex = -1;
   let displayScale = 1;
@@ -405,9 +405,9 @@
   });
 
   // ------------------------------------------------------------
-  // navegacao livre entre TODAS as paginas com raw (nao so as
-  // pendentes) - permite voltar numa ja confirmada pra revisar/corrigir
-  // algo que passou batido, sem perder o lugar das outras
+  // navegacao livre entre TODAS as paginas editaveis (com raw e/ou
+  // pages, nao so as pendentes) - permite voltar numa ja confirmada pra
+  // revisar/corrigir algo que passou batido, sem perder o lugar das outras
   // ------------------------------------------------------------
   function updatePageLabel() {
     const entry = pageList[pageIndex];
@@ -467,10 +467,12 @@
   dom.nextPageBtn.addEventListener('click', () => goToPage(pageIndex + 1));
 
   // ------------------------------------------------------------
-  // carregamento inicial: lista todas as paginas com raw e abre na
-  // primeira PENDENTE (se nao houver nenhuma pendente, abre na
-  // primeira mesmo - so pra revisao, ja que o menu que abre o painel
-  // ja garante que ha pelo menos uma pendente nesse caso normal)
+  // carregamento inicial: lista todas as paginas editaveis (com raw
+  // e/ou pages) e abre na primeira PENDENTE (sem "pages" ainda); se
+  // nao houver nenhuma pendente (todas ja tem "pages"), abre na
+  // primeira mesmo - pra revisao/ajuste adicional (o menu que abre o
+  // painel so garante que ha pelo menos uma pagina editavel, pendente
+  // ou nao - ver getCleanablePages em index.js)
   // ------------------------------------------------------------
   async function init() {
     setProcessing(true);

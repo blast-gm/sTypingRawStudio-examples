@@ -2,13 +2,24 @@
  * Smart Cleaner - limpa páginas de mangá usando inpainting local (LaMa,
  * via studio.image.inpaint). Toda a interação (pintar, desfazer,
  * navegar entre páginas) roda no painel (ui/app.js) - esta função só
- * orquestra o que precisa de acesso ao projeto/modelo: encontrar a
- * próxima página pendente, rodar o inpainting de um traço, e gravar a
- * página confirmada.
+ * orquestra o que precisa de acesso ao projeto/modelo: listar páginas
+ * editáveis, rodar o inpainting de um traço, e gravar a página
+ * confirmada.
  *
- * "Página pendente" = tem imagem "raw" mas ainda não tem "pages" (ou
- * seja, ainda não foi limpa/gerada) - exatamente os projetos que só
- * trazem a pasta raw/ dentro do .ztraw.
+ * Uma página é EDITÁVEL aqui se tiver "raw" OU "pages" (ou as duas) -
+ * ou seja, tanto páginas ainda não limpas (só "raw") quanto páginas
+ * JÁ limpas/geradas (já têm "pages") entram na lista. Isso permite
+ * corrigir uma limpeza que ficou faltando algo, ou fazer qualquer
+ * ajuste adicional numa página que já tem "pages" pronta - editar
+ * SEMPRE grava em "pages" (nunca mexe em "raw", se existir), então dá
+ * pra reabrir e ajustar uma página quantas vezes for preciso. Só fica
+ * de fora uma página sem NENHUMA imagem ainda (nem raw, nem pages) -
+ * não há nada pra carregar/editar nesse caso.
+ *
+ * Ao abrir o painel, a primeira página ainda SEM "pages" (pendente de
+ * verdade) é priorizada; se todas já tiverem "pages", abre na primeira
+ * página da lista mesmo assim (ver init() em ui/app.js) - permitindo
+ * revisão/ajuste mesmo sem nenhuma pendência "nova".
  *
  * Ao trocar de página no painel (Anterior/Próxima), qualquer limpeza
  * feita na página que está sendo deixada é salva automaticamente antes
@@ -24,21 +35,19 @@ module.exports = function (studio) {
 
   async function getCleanablePages() {
     const info = await studio.project.getInfo();
-    return info.pages.filter((p) => p.hasRaw).map((p) => ({ key: p.key, hasPageImage: !!p.hasPageImage }));
-  }
-
-  async function findNextPendingPage() {
-    const pages = await getCleanablePages();
-    return pages.find((p) => !p.hasPageImage) || null;
+    return info.pages
+      .filter((p) => p.hasRaw || p.hasPageImage)
+      .map((p) => ({ key: p.key, hasPageImage: !!p.hasPageImage }));
   }
 
   async function handlePanelMessage(msg) {
     switch (msg && msg.type) {
-      // lista TODAS as paginas com raw (nao so as pendentes) - o painel
-      // usa isso pra permitir navegar livremente entre elas (Anterior/
-      // Proxima), nao so avancar pra frente conforme confirma. Uma
-      // pagina ja confirmada e mostrada a partir da propria "pages/"
-      // (o resultado ja limpo), nao da "raw" de novo - ver 'get-page'.
+      // lista TODAS as paginas editaveis (com raw e/ou pages, ver
+      // getCleanablePages) - o painel usa isso pra permitir navegar
+      // livremente entre elas (Anterior/Proxima), nao so avancar pra
+      // frente conforme confirma. Uma pagina que ja tem "pages" e
+      // mostrada a partir dela mesma (o resultado ja limpo/existente),
+      // nao da "raw" de novo - ver 'get-page'.
       case 'get-page-list': {
         const pages = await getCleanablePages();
         return { pages };
@@ -85,9 +94,9 @@ module.exports = function (studio) {
     name: 'Limpar páginas',
     icon: 'eraser',
     async action() {
-      const page = await findNextPendingPage();
-      if (!page) {
-        studio.dialog.show('Nenhuma página pendente de limpeza - todas já têm imagem gerada, ou não há projeto aberto com páginas "raw".');
+      const pages = await getCleanablePages();
+      if (!pages.length) {
+        studio.dialog.show('Nenhuma página com imagem (raw ou já limpa) neste projeto - ou não há projeto aberto.');
         return;
       }
       openCleanerPanel();
