@@ -90,10 +90,12 @@ O modelo (~44MB, variante quantizada int8) não fica neste repositório
 node examples/page-translator/download-model.js
 ```
 
-Depois, pra gerar o `.zip` (mesma saída de sempre, `dist-extensions/`):
+Depois, pra gerar o `.zip` (mesma saída de sempre, `dist-extensions/`,
+nome/versão sempre a partir do próprio `extension.json`):
 
 ```bash
-node examples/page-translator/build-package.js
+node scripts/build-package.js examples/page-translator
+# ou: npm run build:page-translator
 ```
 
 ## Notas técnicas

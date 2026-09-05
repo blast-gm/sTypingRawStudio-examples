@@ -72,18 +72,33 @@ node examples/page-translator/download-model.js
 Só quando for publicar de verdade - até lá, o teste local acima já é
 suficiente pro ciclo de desenvolvimento inteiro.
 
+Um único script genérico (`scripts/build-package.js`) empacota
+**qualquer** pasta de extensão - o nome/versão do `.zip` de saída vem
+sempre do `id`/`version` do próprio `extension.json` da pasta
+informada, nunca precisa ser digitado à mão:
+
 ```bash
 npm install
 
-# gera examples/hello-extension em dist-extensions/hello-extension-1.0.0.zip
+# uso geral - funciona pra qualquer extensao, mesmo uma nova sem
+# nenhum script proprio no package.json:
+node scripts/build-package.js <pasta-da-extensao> [caminho-do-modelo-pra-copiar]
+
+# gera dist-extensions/hello-extension-<versão>.zip
 npm run build:hello-extension
 
-# gera examples/smart-cleaner em dist-extensions/smart-cleaner-1.0.0.zip
-node examples/smart-cleaner/build-package.js "/caminho/para/lama_fp32.onnx"
+# gera dist-extensions/smart-cleaner-<versão>.zip (o 2º argumento,
+# opcional, copia o modelo pra models/ antes de empacotar - so precisa
+# na primeira vez, ou se o modelo ainda nao estiver la)
+npm run build:smart-cleaner -- "/caminho/para/lama_fp32.onnx"
 
-# gera examples/page-translator em dist-extensions/page-translator-1.0.0.zip
+# gera dist-extensions/page-translator-<versão>.zip
 npm run build:page-translator
 ```
+
+Depois de subir a versão em `extension.json`, é só rodar o build de
+novo - o nome do `.zip` já sai certo, sem precisar editar nada no
+script.
 
 ## Publicando sua própria extensão
 

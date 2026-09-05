@@ -4,9 +4,10 @@
   "description": "Exemplos de extensoes para o sTraw Studio (sTypingRawStudio) - hello-extension, Smart Cleaner, Page Translator e o template base pra comecar uma nova.",
   "private": true,
   "scripts": {
-    "build:hello-extension": "node scripts/build-hello-extension.js",
-    "build:smart-cleaner": "node examples/smart-cleaner/build-package.js",
-    "build:page-translator": "node examples/page-translator/build-package.js"
+    "build": "node scripts/build-package.js",
+    "build:hello-extension": "node scripts/build-package.js examples/hello-extension",
+    "build:smart-cleaner": "node scripts/build-package.js examples/smart-cleaner",
+    "build:page-translator": "node scripts/build-package.js examples/page-translator"
   },
   "dependencies": {
     "adm-zip": "^0.6.0"
