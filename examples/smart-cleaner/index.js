@@ -1,13 +1,23 @@
 /**
  * Smart Cleaner - limpa páginas de mangá usando inpainting local (LaMa,
- * via studio.image.inpaint). Toda a interação (pintar, desfazer) roda
- * no painel (ui/app.js) - esta função só orquestra o que precisa de
- * acesso ao projeto/modelo: encontrar a próxima página pendente, rodar
- * o inpainting de um traço, e gravar a página confirmada.
+ * via studio.image.inpaint). Toda a interação (pintar, desfazer,
+ * navegar entre páginas) roda no painel (ui/app.js) - esta função só
+ * orquestra o que precisa de acesso ao projeto/modelo: encontrar a
+ * próxima página pendente, rodar o inpainting de um traço, e gravar a
+ * página confirmada.
  *
  * "Página pendente" = tem imagem "raw" mas ainda não tem "pages" (ou
  * seja, ainda não foi limpa/gerada) - exatamente os projetos que só
  * trazem a pasta raw/ dentro do .ztraw.
+ *
+ * Ao trocar de página no painel (Anterior/Próxima), qualquer limpeza
+ * feita na página que está sendo deixada é salva automaticamente antes
+ * de navegar (ver goToPage em ui/app.js) - nada é descartado
+ * silenciosamente. O histórico de desfazer (Ctrl+Z) é mantido
+ * SEPARADO por página, em memória no próprio painel, e nunca é
+ * limpo ao navegar nem ao confirmar - continua disponível mesmo depois
+ * de ir pra outra página e voltar, durante a mesma sessão em que o
+ * painel ficou aberto.
  */
 module.exports = function (studio) {
   const MODEL_PATH = 'models/lama_fp32.onnx';
@@ -50,6 +60,10 @@ module.exports = function (studio) {
 
       case 'confirm-page': {
         await studio.project.writePageImage(msg.pageKey, msg.imageBase64, '.png');
+        // recarrega a pagina no editor (por tras do painel) - se for a
+        // pagina atualmente aberta la, o resultado aparece na hora, sem
+        // precisar fechar o painel nem trocar de pagina e voltar
+        await studio.editor.refresh();
         return { ok: true };
       }
 

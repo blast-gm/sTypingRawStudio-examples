@@ -78,11 +78,25 @@
   let pageList = [];
   let pageIndex = -1;
   let displayScale = 1;
-  let undoStack = [];
   let isProcessing = false;
   let isDrawing = false;
   let lastPoint = null;
   let hasStroke = false;
+
+  // pilha de desfazer POR PAGINA (pageKey -> array de dataURLs "antes de
+  // cada traco") - antes era uma unica pilha global, que ia pro lixo
+  // toda vez que a pessoa trocava de pagina (mesmo so pra dar uma
+  // olhada e voltar). Guardando uma pilha separada por pagina aqui no
+  // painel, Ctrl+Z continua funcionando certinho mesmo depois de ir pra
+  // outra pagina e voltar - "esvazia" so quando o PAINEL inteiro fecha
+  // (memoria, nao arquivo - nao precisa sobreviver a fechar o app).
+  const undoStacksByKey = new Map();
+
+  function getUndoStack(key) {
+    if (!key) return [];
+    if (!undoStacksByKey.has(key)) undoStacksByKey.set(key, []);
+    return undoStacksByKey.get(key);
+  }
 
   function currentPageKey() {
     return pageIndex >= 0 && pageIndex < pageList.length ? pageList[pageIndex].key : null;
@@ -101,7 +115,7 @@
     isProcessing = value;
     dom.statusOverlay.hidden = !value;
     dom.maskCanvas.style.pointerEvents = value ? 'none' : 'auto';
-    dom.undoBtn.disabled = value || !undoStack.length;
+    dom.undoBtn.disabled = value || !getUndoStack(currentPageKey()).length;
     dom.confirmBtn.disabled = value || !currentPageKey();
     dom.prevPageBtn.disabled = value || pageIndex <= 0;
     dom.nextPageBtn.disabled = value || pageIndex < 0 || pageIndex >= pageList.length - 1;
@@ -300,7 +314,7 @@
         maskBase64: dataUrlToBase64(maskDataUrl),
       });
 
-      undoStack.push(beforeDataUrl);
+      getUndoStack(currentPageKey()).push(beforeDataUrl);
       await loadFullResultDataUrl(`data:image/png;base64,${result.imageBase64}`);
       clearStroke();
     } catch (err) {
@@ -338,10 +352,11 @@
   dom.undoBtn.addEventListener('click', undo);
 
   async function undo() {
-    if (isProcessing || !undoStack.length) return;
-    const previous = undoStack.pop();
+    const stack = getUndoStack(currentPageKey());
+    if (isProcessing || !stack.length) return;
+    const previous = stack.pop();
     await loadFullResultDataUrl(previous);
-    dom.undoBtn.disabled = !undoStack.length;
+    dom.undoBtn.disabled = !stack.length;
   }
 
   // ------------------------------------------------------------
@@ -361,11 +376,14 @@
         imageBase64: dataUrlToBase64(fullCanvas.toDataURL('image/png')),
       });
       pageList[pageIndex] = { ...pageList[pageIndex], hasPageImage: true };
-      // ja foi salvo com sucesso - limpa ANTES de navegar, senao
-      // goToPage acharia que ha edicao nao confirmada nesta pagina (o
-      // aviso de "alteracoes descartadas" e so pra edicao de verdade
-      // perdida, nao pra algo que acabou de ser gravado)
-      undoStack = [];
+      // NAO limpa o historico de undo aqui - Ctrl+Z continua disponivel
+      // mesmo depois de confirmar (ver getUndoStack/goToPage: o unico
+      // efeito de deixar a pilha nao-vazia e goToPage salvar de novo o
+      // MESMO resultado ao sair da pagina, inofensivo).
+      // studio.editor.refresh() (recarrega a pagina no editor por tras
+      // do painel) e chamado do lado do processo principal, dentro do
+      // handler de 'confirm-page' (ver index.js) - nao precisa repetir
+      // aqui.
 
       // prioriza a proxima pendente DEPOIS da atual (fluxo natural de ir
       // avancando); se nao sobrar nenhuma pra frente, procura qualquer
@@ -402,18 +420,37 @@
   async function goToPage(index) {
     if (index < 0 || index >= pageList.length || isDrawing) return;
 
-    // ha limpeza(s) feita(s) nesta pagina que ainda NAO foram
-    // confirmadas (gravadas em pages/) - navegar embora sem avisar
-    // perderia esse trabalho silenciosamente, entao mostra um aviso
-    // rapido antes de trocar de pagina
-    if (undoStack.length) {
+    const leavingKey = currentPageKey();
+    const leavingStack = getUndoStack(leavingKey);
+
+    // ha limpeza(s) feita(s) nesta pagina desde a ultima vez que foi
+    // carregada/salva - em vez de DESCARTAR esse trabalho (como este
+    // painel fazia antes, so avisando que ia perder), salva sozinho
+    // antes de trocar de pagina, igual o editor principal ja faz ao
+    // mudar de pagina com alteracoes pendentes. O historico de undo
+    // NAO e apagado (ver getUndoStack) - Ctrl+Z continua funcionando
+    // nesta pagina mesmo depois de voltar pra ela mais tarde.
+    if (leavingStack.length) {
       setProcessing(true);
-      setStatus('Alterações não confirmadas nesta página foram descartadas.');
-      await new Promise((r) => setTimeout(r, 1400));
+      setStatus('Salvando página automaticamente...');
+      try {
+        await callStudio({
+          type: 'confirm-page',
+          pageKey: leavingKey,
+          imageBase64: dataUrlToBase64(fullCanvas.toDataURL('image/png')),
+        });
+        const leavingIndex = pageList.findIndex((p) => p.key === leavingKey);
+        if (leavingIndex >= 0) pageList[leavingIndex] = { ...pageList[leavingIndex], hasPageImage: true };
+      } catch (err) {
+        // NAO navega se o salvamento falhou - a pessoa continua vendo o
+        // trabalho dela na tela (nada foi perdido), e pode tentar de novo
+        setStatus(`Erro ao salvar página automaticamente: ${err.message}`);
+        setProcessing(false);
+        return;
+      }
     }
 
     pageIndex = index;
-    undoStack = [];
     setProcessing(true);
     setStatus('Carregando página...');
 
