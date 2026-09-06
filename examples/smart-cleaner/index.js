@@ -31,7 +31,12 @@
  * painel ficou aberto.
  */
 module.exports = function (studio) {
-  const MODEL_PATH = 'models/lama_fp32.onnx';
+  // "lama-manga.onnx" (mayocream/lama-manga-onnx, Apache-2.0) - mesmo
+  // LaMa generico de antes ("lama_fp32.onnx"), mas fine-tuned em ~300 mil
+  // imagens de mangá/anime, reconstruindo screentone/trama muito melhor
+  // (o modelo generico, treinado majoritariamente em fotos, costumava
+  // deixar uma "mancha" mais clara/lisa em vez do pontilhado da trama).
+  const MODEL_PATH = 'models/lama-manga.onnx';
 
   async function getCleanablePages() {
     const info = await studio.project.getInfo();
