@@ -113,34 +113,6 @@
       .filter((line) => line.trim());
   }
 
-  // tamanho da previa: 2.7x o tanto que caberia inteiro sem precisar
-  // rolar (pedidos explicitos em sequencia: 80% maior, depois mais 50%
-  // maior ainda em cima disso - o "cabe sem rolar" original ficou
-  // pequeno demais pra ser util) - pode pedir rolagem vertical a
-  // vontade, a unica coisa que NUNCA pode e passar da largura
-  // disponivel (nunca encostar nas laterais).
-  const PREVIEW_ZOOM = 1.8 * 1.5;
-
-  function fitPreviewImage() {
-    const img = dom.pagePreviewImg;
-    if (!img.naturalWidth || !img.naturalHeight) return;
-
-    const wrapRect = dom.pagePreviewWrap.getBoundingClientRect();
-    const availableW = wrapRect.width;
-    // offsetTop (nao getBoundingClientRect) porque nao depende da
-    // posicao de rolagem atual - da a altura disponivel COMO SE a
-    // pagina estivesse no topo, so pra calcular o tamanho BASE que
-    // depois e ampliado em 80%
-    const availableH = Math.max(80, window.innerHeight - dom.pagePreviewWrap.offsetTop - 18);
-    const fitScale = Math.min(availableW / img.naturalWidth, availableH / img.naturalHeight, 1);
-    const maxWidthScale = availableW / img.naturalWidth; // teto - nunca estoura os lados
-    const scale = Math.min(fitScale * PREVIEW_ZOOM, maxWidthScale);
-    img.style.width = `${Math.round(img.naturalWidth * scale)}px`;
-    img.style.height = 'auto';
-  }
-
-  window.addEventListener('resize', fitPreviewImage);
-
   function setMainStatus(text, isError) {
     dom.mainStatus.textContent = text;
     dom.mainStatus.classList.toggle('error', Boolean(isError));
@@ -183,11 +155,9 @@
       renderScriptChips(state.script);
       dom.draftView.value = linesToText(state.draft);
       if (state.imageBase64) {
-        dom.pagePreviewImg.onload = fitPreviewImage;
         dom.pagePreviewImg.src = `data:image/png;base64,${state.imageBase64}`;
         dom.pagePreviewWrap.hidden = false;
       } else {
-        dom.pagePreviewImg.onload = null;
         dom.pagePreviewImg.src = '';
         dom.pagePreviewWrap.hidden = true;
       }

@@ -51,16 +51,18 @@ textarea { min-height: 260px; resize: vertical; line-height: 1.5; }
 
 /* previa somente visual da pagina RAW atual (o texto ORIGINAL, nao a
    versao ja limpa - precisa bater com o rascunho na hora de revisar).
-   Largura/altura em px sao calculadas em JS (ver fitPreviewImage no
-   app.js): comeca do tamanho que caberia inteiro sem rolar e AMPLIA em
-   80% (PREVIEW_ZOOM) - pode precisar de rolagem vertical no painel pra
-   ver o resto (overflow-x:hidden no html/body acima impede so a
-   rolagem HORIZONTAL), mas a largura NUNCA passa do espaco disponivel
-   (nunca encosta nas laterais). */
-#pagePreviewWrap { margin-top: 18px; display: flex; justify-content: center; }
+   Largura SEMPRE igual a 100% do espaco disponivel (a mesma largura das
+   caixas/botoes acima) em QUALQUER pagina - antes a largura era
+   calculada por pagina a partir da proporcao de cada imagem, o que
+   fazia paginas de proporcao diferente renderizarem em tamanhos
+   diferentes entre si; agora e sempre o mesmo tamanho. A altura
+   acompanha a proporcao de cada pagina livremente (por isso paginas MUITO
+   altas, tipo webtoon/mangá coreano, so pedem rolagem vertical no painel -
+   overflow-x:hidden no html/body acima impede so a rolagem HORIZONTAL). */
+#pagePreviewWrap { margin-top: 18px; }
 #pagePreviewWrap img {
   display: block;
-  max-width: 100%;
+  width: 100%;
   height: auto;
   border: 1px solid #2a2a34;
   border-radius: 6px;
