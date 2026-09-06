@@ -60,15 +60,26 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: auto;
+  /* NAO usar overflow:auto aqui - combinado com align/justify-content:
+     center, o navegador tem um bug conhecido onde metade do conteudo
+     que estoura o container vira inacessivel pela rolagem. O zoom
+     (Ctrl +/-, Ctrl+scroll) e a navegacao (segurar espaco e arrastar)
+     controlam a posicao a mao via --pan-x/--pan-y, entao nao precisa
+     de rolagem nativa nenhuma. */
+  overflow: hidden;
   min-height: 0;
+  --pan-x: 0px;
+  --pan-y: 0px;
 }
+
+#canvasWrap.panning-ready #overlayCanvas { cursor: grab; }
+#canvasWrap.panning-active #overlayCanvas { cursor: grabbing; }
 
 #imageCanvas, #overlayCanvas {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(calc(-50% + var(--pan-x)), calc(-50% + var(--pan-y)));
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
 

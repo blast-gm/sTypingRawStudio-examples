@@ -121,6 +121,50 @@
   let brushPoints = [];
   let shapeFrom = null;
 
+  // ------------------------------------------------------------
+  // zoom (Ctrl +/- ou Ctrl+scroll) e navegacao (segurar espaco e
+  // arrastar) - zoomLevel multiplica a escala "caber na tela" (1 =
+  // comportamento padrao de sempre); panX/panY sao um deslocamento em
+  // PIXELS DE TELA aplicado via CSS var, sem depender do scroll nativo
+  // do navegador (canvasWrap tem align-items/justify-content:center +
+  // overflow:hidden - combinar isso com overflow:auto tem um bug
+  // conhecido de flexbox onde metade do conteudo que estoura vira
+  // inacessivel pela rolagem; controlando o deslocamento a mao esse
+  // problema nem aparece).
+  // ------------------------------------------------------------
+  const ZOOM_MIN = 0.15;
+  const ZOOM_MAX = 8;
+  const ZOOM_KEY_STEP = 1.2;
+  const ZOOM_WHEEL_STEP = 1.06;
+  let zoomLevel = 1;
+  let panX = 0;
+  let panY = 0;
+  let spaceDown = false;
+  let isPanning = false;
+  let panPointerStart = null;
+  let panOffsetStart = null;
+
+  function isTypingTarget(elm) {
+    return Boolean(elm) && (elm.tagName === 'INPUT' || elm.tagName === 'TEXTAREA' || elm.tagName === 'SELECT' || elm.isContentEditable);
+  }
+
+  function applyPanTransform() {
+    dom.canvasWrap.style.setProperty('--pan-x', `${panX}px`);
+    dom.canvasWrap.style.setProperty('--pan-y', `${panY}px`);
+  }
+
+  function setZoom(next) {
+    zoomLevel = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next));
+    redrawDisplay();
+  }
+
+  function resetView() {
+    zoomLevel = 1;
+    panX = 0;
+    panY = 0;
+    applyPanTransform();
+  }
+
   function setStatus(text, isError) {
     dom.statusText.textContent = text;
     if (isError) console.error('[painter]', text);
@@ -159,6 +203,7 @@
         dom.emptyState.hidden = true;
         dom.imageCanvas.hidden = false;
         dom.overlayCanvas.hidden = false;
+        resetView(); // imagem nova (pagina/tela em branco) - comeca sempre do zero, centralizada
         redrawDisplay();
         resolve();
       };
@@ -169,7 +214,8 @@
   function redrawDisplay() {
     const availableW = Math.max(50, dom.canvasWrap.clientWidth - DISPLAY_PADDING * 2);
     const availableH = Math.max(50, dom.canvasWrap.clientHeight - DISPLAY_PADDING * 2);
-    const scale = Math.min(availableW / fullCanvas.width, availableH / fullCanvas.height, 1);
+    const fitScale = Math.min(availableW / fullCanvas.width, availableH / fullCanvas.height, 1);
+    const scale = fitScale * zoomLevel;
     const w = Math.max(1, Math.round(fullCanvas.width * scale));
     const h = Math.max(1, Math.round(fullCanvas.height * scale));
 
@@ -466,7 +512,76 @@
     }
   }
 
+  // ------------------------------------------------------------
+  // zoom (Ctrl +/- e Ctrl+scroll) e pan (segurar espaco e arrastar) -
+  // tem prioridade sobre o desenho: enquanto espaco esta pressionado, o
+  // mesmo gesto de pointerdown/move/up navega em vez de desenhar (ver
+  // startPan/movePan/stopPan chamados no topo de startDrawing/moveDrawing/stopDrawing).
+  // ------------------------------------------------------------
+  window.addEventListener('keydown', (e) => {
+    if (isTypingTarget(document.activeElement)) return;
+    if (e.code === 'Space' && !spaceDown) {
+      spaceDown = true;
+      dom.canvasWrap.classList.add('panning-ready');
+      e.preventDefault();
+      return;
+    }
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      setZoom(zoomLevel * ZOOM_KEY_STEP);
+    } else if (e.key === '-' || e.key === '_') {
+      e.preventDefault();
+      setZoom(zoomLevel / ZOOM_KEY_STEP);
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') {
+      spaceDown = false;
+      dom.canvasWrap.classList.remove('panning-ready', 'panning-active');
+    }
+  });
+
+  dom.canvasWrap.addEventListener(
+    'wheel',
+    (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? ZOOM_WHEEL_STEP : 1 / ZOOM_WHEEL_STEP;
+      setZoom(zoomLevel * factor);
+    },
+    { passive: false }
+  );
+
+  function startPan(evt) {
+    if (!spaceDown) return false;
+    isPanning = true;
+    panPointerStart = { x: evt.clientX, y: evt.clientY };
+    panOffsetStart = { x: panX, y: panY };
+    dom.canvasWrap.classList.add('panning-active');
+    try {
+      dom.overlayCanvas.setPointerCapture(evt.pointerId);
+    } catch (err) {
+      // sem suporte a capture - segue sem, o pan so fica um pouco menos robusto
+    }
+    return true;
+  }
+
+  function movePan(evt) {
+    panX = panOffsetStart.x + (evt.clientX - panPointerStart.x);
+    panY = panOffsetStart.y + (evt.clientY - panPointerStart.y);
+    applyPanTransform();
+  }
+
+  function stopPan(evt) {
+    isPanning = false;
+    dom.canvasWrap.classList.remove('panning-active');
+    releasePointerCaptureSafe(evt);
+  }
+
   function startDrawing(evt) {
+    if (startPan(evt)) return;
     if (!canStartDrawing()) return;
     evt.preventDefault();
 
@@ -504,6 +619,10 @@
   }
 
   function moveDrawing(evt) {
+    if (isPanning) {
+      movePan(evt);
+      return;
+    }
     if (!isDrawing) return;
     evt.preventDefault();
 
@@ -566,6 +685,10 @@
   }
 
   function stopDrawing(evt) {
+    if (isPanning) {
+      stopPan(evt);
+      return;
+    }
     if (!isDrawing) return;
     isDrawing = false;
     releasePointerCaptureSafe(evt);

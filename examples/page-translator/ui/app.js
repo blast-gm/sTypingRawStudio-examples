@@ -38,6 +38,8 @@
     btnTestDraft: el('btnTestDraft'),
     btnSaveScript: el('btnSaveScript'),
     mainStatus: el('mainStatus'),
+    pagePreviewWrap: el('pagePreviewWrap'),
+    pagePreviewImg: el('pagePreviewImg'),
   };
 
   // pagina que o PAINEL esta mostrando/editando agora - independente da
@@ -111,6 +113,41 @@
       .filter((line) => line.trim());
   }
 
+  // pagina de proporcao "normal" (ate um pouco mais alta que 9:16, a
+  // proporcao usual de pagina de mangá/comic) encolhe pra caber INTEIRA
+  // no espaco que sobrar da tela (sem precisar rolar pra ver o resto) -
+  // so uma pagina MUITO mais alta que isso (webtoon/mangá coreano, as
+  // vezes varias telas de altura) foge dessa regra: nesse caso so a
+  // LARGURA e limitada (nunca estoura pros lados) e a altura cresce
+  // livre, com rolagem no painel inteiro.
+  const NORMAL_MAX_ASPECT = (16 / 9) * 1.25; // ~2.22 - folga sobre 9:16 antes de virar "webtoon"
+
+  function fitPreviewImage() {
+    const img = dom.pagePreviewImg;
+    if (!img.naturalWidth || !img.naturalHeight) return;
+    const aspect = img.naturalHeight / img.naturalWidth;
+
+    if (aspect > NORMAL_MAX_ASPECT) {
+      // webtoon/mangá coreano - so a largura e limitada, o resto rola
+      img.style.width = '';
+      img.style.height = 'auto';
+      return;
+    }
+
+    const wrapRect = dom.pagePreviewWrap.getBoundingClientRect();
+    const availableW = wrapRect.width;
+    // offsetTop (nao getBoundingClientRect) porque nao depende da
+    // posicao de rolagem atual - da a altura disponivel COMO SE a
+    // pagina estivesse no topo, que e exatamente o que decide se vai
+    // precisar de rolagem ou nao
+    const availableH = Math.max(80, window.innerHeight - dom.pagePreviewWrap.offsetTop - 18);
+    const scale = Math.min(availableW / img.naturalWidth, availableH / img.naturalHeight, 1);
+    img.style.width = `${Math.round(img.naturalWidth * scale)}px`;
+    img.style.height = 'auto';
+  }
+
+  window.addEventListener('resize', fitPreviewImage);
+
   function setMainStatus(text, isError) {
     dom.mainStatus.textContent = text;
     dom.mainStatus.classList.toggle('error', Boolean(isError));
@@ -152,6 +189,15 @@
       dom.pageLabel.textContent = `Página: ${state.pageKey}`;
       renderScriptChips(state.script);
       dom.draftView.value = linesToText(state.draft);
+      if (state.imageBase64) {
+        dom.pagePreviewImg.onload = fitPreviewImage;
+        dom.pagePreviewImg.src = `data:image/png;base64,${state.imageBase64}`;
+        dom.pagePreviewWrap.hidden = false;
+      } else {
+        dom.pagePreviewImg.onload = null;
+        dom.pagePreviewImg.src = '';
+        dom.pagePreviewWrap.hidden = true;
+      }
       setMainStatus('');
     } catch (err) {
       setMainStatus('Erro: ' + err.message, true);

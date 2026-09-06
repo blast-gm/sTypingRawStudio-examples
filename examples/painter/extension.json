@@ -1,7 +1,7 @@
 {
   "id": "painter",
   "name": "Painter",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Ferramenta de pintura livre na página (pincel com pressão, balde de tinta, formas básicas) e transformações de imagem (girar, espelhar, redimensionar, desfocar) - exemplo de referência de studio.draw/studio.image.",
   "author": "sTraw Studio",
   "apiVersion": "1.0",

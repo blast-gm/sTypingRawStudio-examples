@@ -184,17 +184,32 @@ module.exports = function (studio) {
     const info = await studio.project.getInfo();
     const pageKey = await resolvePageKey(info, requestedKey);
     const page = info.pages.find((p) => p.key === pageKey);
+    const hasRaw = Boolean(page && page.hasRaw);
+    const hasPageImage = Boolean(page && page.hasPageImage);
     const [script, draft] = await Promise.all([
       studio.project.readScript(pageKey),
       studio.project.readTranslateDraft(pageKey),
     ]);
+
+    // previa da pagina atual pro painel (so feedback visual, pra saber
+    // onde cada balao esta na hora de revisar) - prefere SEMPRE o "raw"
+    // (a imagem ORIGINAL, com o texto de origem ainda visivel) mesmo
+    // que a pagina ja tenha sido limpa - e o texto ORIGINAL que precisa
+    // bater com o rascunho/roteiro na hora de revisar, nao a versao ja
+    // sem texto; so cai pro "pages" se por algum motivo nao houver raw
+    let imageBase64 = null;
+    if (hasRaw || hasPageImage) {
+      imageBase64 = await studio.project.readPageImage(pageKey, hasRaw ? 'raw' : 'pages');
+    }
+
     return {
       pageKey,
       pageKeys: info.pageKeys,
-      hasRaw: Boolean(page && page.hasRaw),
-      hasPageImage: Boolean(page && page.hasPageImage),
+      hasRaw,
+      hasPageImage,
       script,
       draft,
+      imageBase64,
     };
   }
 

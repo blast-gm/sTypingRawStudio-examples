@@ -83,6 +83,97 @@
   let lastPoint = null;
   let hasStroke = false;
 
+  // ------------------------------------------------------------
+  // zoom (Ctrl +/- ou Ctrl+scroll) e navegacao (segurar espaco e
+  // arrastar) - zoomLevel multiplica a escala "caber na tela" (1 =
+  // comportamento padrao de sempre); panX/panY sao um deslocamento em
+  // PIXELS DE TELA aplicado via CSS var, sem depender de rolagem
+  // nativa (ver nota equivalente no style.css do Painter - mesmo
+  // motivo aqui: overflow:auto + centralizar via flex deixaria parte
+  // do conteudo que estoura inacessivel pela rolagem).
+  // ------------------------------------------------------------
+  const ZOOM_MIN = 0.15;
+  const ZOOM_MAX = 8;
+  const ZOOM_KEY_STEP = 1.2;
+  const ZOOM_WHEEL_STEP = 1.06;
+  let zoomLevel = 1;
+  let panX = 0;
+  let panY = 0;
+  let spaceDown = false;
+  let isPanning = false;
+  let panPointerStart = null;
+  let panOffsetStart = null;
+
+  function isTypingTarget(elm) {
+    return Boolean(elm) && (elm.tagName === 'INPUT' || elm.tagName === 'TEXTAREA' || elm.tagName === 'SELECT' || elm.isContentEditable);
+  }
+
+  function applyPanTransform() {
+    dom.canvasWrap.style.setProperty('--pan-x', `${panX}px`);
+    dom.canvasWrap.style.setProperty('--pan-y', `${panY}px`);
+  }
+
+  function setZoom(next) {
+    zoomLevel = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next));
+    redrawDisplayFromFull();
+  }
+
+  function resetView() {
+    zoomLevel = 1;
+    panX = 0;
+    panY = 0;
+    applyPanTransform();
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (isTypingTarget(document.activeElement)) return;
+    if (e.code === 'Space' && !spaceDown) {
+      spaceDown = true;
+      dom.canvasWrap.classList.add('panning-ready');
+      e.preventDefault();
+      return;
+    }
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      setZoom(zoomLevel * ZOOM_KEY_STEP);
+    } else if (e.key === '-' || e.key === '_') {
+      e.preventDefault();
+      setZoom(zoomLevel / ZOOM_KEY_STEP);
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') {
+      spaceDown = false;
+      dom.canvasWrap.classList.remove('panning-ready', 'panning-active');
+    }
+  });
+
+  function startPan(evt) {
+    if (!spaceDown) return false;
+    isPanning = true;
+    panPointerStart = { x: evt.clientX, y: evt.clientY };
+    panOffsetStart = { x: panX, y: panY };
+    dom.canvasWrap.classList.add('panning-active');
+    return true;
+  }
+
+  // ouvidas na JANELA (nao so no maskCanvas) - um arraste de pan pode
+  // sair da area do canvas quando a imagem esta com zoom alto, e
+  // precisa continuar respondendo mesmo assim
+  window.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    panX = panOffsetStart.x + (e.clientX - panPointerStart.x);
+    panY = panOffsetStart.y + (e.clientY - panPointerStart.y);
+    applyPanTransform();
+  });
+  window.addEventListener('mouseup', () => {
+    if (!isPanning) return;
+    isPanning = false;
+    dom.canvasWrap.classList.remove('panning-active');
+  });
+
   // pilha de desfazer POR PAGINA (pageKey -> array de dataURLs "antes de
   // cada traco") - antes era uma unica pilha global, que ia pro lixo
   // toda vez que a pessoa trocava de pagina (mesmo so pra dar uma
@@ -132,6 +223,7 @@
         fullCanvas.width = img.naturalWidth;
         fullCanvas.height = img.naturalHeight;
         fullCtx.drawImage(img, 0, 0);
+        resetView(); // pagina nova - comeca sempre do zero, centralizada
         redrawDisplayFromFull();
         resolve();
       };
@@ -143,10 +235,12 @@
     // encaixa no espaco REAL disponivel no momento (nao um tamanho
     // fixo "chutado") - o painel pode abrir em janelas de tamanhos
     // bem diferentes, e um valor fixo grande demais deixava a imagem
-    // maior que a area visivel, exigindo rolagem em vez de "caber"
+    // maior que a area visivel, exigindo rolagem em vez de "caber".
+    // zoomLevel multiplica essa escala "caber" (1 = padrao de sempre).
     const availableW = Math.max(100, dom.canvasWrap.clientWidth - DISPLAY_PADDING * 2);
     const availableH = Math.max(100, dom.canvasWrap.clientHeight - DISPLAY_PADDING * 2);
-    const scale = Math.min(availableW / fullCanvas.width, availableH / fullCanvas.height, 1);
+    const fitScale = Math.min(availableW / fullCanvas.width, availableH / fullCanvas.height, 1);
+    const scale = fitScale * zoomLevel;
     displayScale = scale;
     const w = Math.max(1, Math.round(fullCanvas.width * scale));
     const h = Math.max(1, Math.round(fullCanvas.height * scale));
@@ -209,7 +303,19 @@
     maskCtx.globalAlpha = 1;
   }
 
+  dom.canvasWrap.addEventListener(
+    'wheel',
+    (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? ZOOM_WHEEL_STEP : 1 / ZOOM_WHEEL_STEP;
+      setZoom(zoomLevel * factor);
+    },
+    { passive: false }
+  );
+
   function startDrawing(evt) {
+    if (startPan(evt)) return;
     if (isProcessing || !currentPageKey()) return;
     evt.preventDefault();
     isDrawing = true;
