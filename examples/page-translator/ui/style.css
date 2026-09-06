@@ -50,15 +50,13 @@ textarea { min-height: 260px; resize: vertical; line-height: 1.5; }
 .actions.main { margin-top: 16px; justify-content: center; }
 
 /* previa somente visual da pagina RAW atual (o texto ORIGINAL, nao a
-   versao ja limpa - precisa bater com o rascunho na hora de revisar) -
-   so pra saber mais ou menos onde cada balao esta, nao precisa ser
-   grande. Largura/altura em px sao calculadas em JS (ver fitPreviewImage
-   no app.js): pagina de proporcao normal encolhe pra caber INTEIRA no
-   espaco que sobrar da tela, sem precisar rolar; so uma pagina MUITO
-   mais alta que 9:16 (webtoon/mangá coreano) foge dessa regra - ai so
-   a largura e limitada (nunca estoura pros lados) e a altura cresce
-   livre, com rolagem no PAINEL inteiro (overflow-x:hidden no html/body
-   acima impede so a rolagem HORIZONTAL) pra dar pra ver ela inteira. */
+   versao ja limpa - precisa bater com o rascunho na hora de revisar).
+   Largura/altura em px sao calculadas em JS (ver fitPreviewImage no
+   app.js): comeca do tamanho que caberia inteiro sem rolar e AMPLIA em
+   80% (PREVIEW_ZOOM) - pode precisar de rolagem vertical no painel pra
+   ver o resto (overflow-x:hidden no html/body acima impede so a
+   rolagem HORIZONTAL), mas a largura NUNCA passa do espaco disponivel
+   (nunca encosta nas laterais). */
 #pagePreviewWrap { margin-top: 18px; display: flex; justify-content: center; }
 #pagePreviewWrap img {
   display: block;

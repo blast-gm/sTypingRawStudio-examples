@@ -113,35 +113,27 @@
       .filter((line) => line.trim());
   }
 
-  // pagina de proporcao "normal" (ate um pouco mais alta que 9:16, a
-  // proporcao usual de pagina de mangá/comic) encolhe pra caber INTEIRA
-  // no espaco que sobrar da tela (sem precisar rolar pra ver o resto) -
-  // so uma pagina MUITO mais alta que isso (webtoon/mangá coreano, as
-  // vezes varias telas de altura) foge dessa regra: nesse caso so a
-  // LARGURA e limitada (nunca estoura pros lados) e a altura cresce
-  // livre, com rolagem no painel inteiro.
-  const NORMAL_MAX_ASPECT = (16 / 9) * 1.25; // ~2.22 - folga sobre 9:16 antes de virar "webtoon"
+  // tamanho da previa: 80% MAIOR do que o tanto que caberia inteiro sem
+  // precisar rolar (pedido explicito - o "cabe sem rolar" original
+  // ficou pequeno demais pra ser util) - pode digitar rolagem vertical
+  // à vontade, a unica coisa que NUNCA pode e passar da largura
+  // disponivel (nunca encostar nas laterais).
+  const PREVIEW_ZOOM = 1.8;
 
   function fitPreviewImage() {
     const img = dom.pagePreviewImg;
     if (!img.naturalWidth || !img.naturalHeight) return;
-    const aspect = img.naturalHeight / img.naturalWidth;
-
-    if (aspect > NORMAL_MAX_ASPECT) {
-      // webtoon/mangá coreano - so a largura e limitada, o resto rola
-      img.style.width = '';
-      img.style.height = 'auto';
-      return;
-    }
 
     const wrapRect = dom.pagePreviewWrap.getBoundingClientRect();
     const availableW = wrapRect.width;
     // offsetTop (nao getBoundingClientRect) porque nao depende da
     // posicao de rolagem atual - da a altura disponivel COMO SE a
-    // pagina estivesse no topo, que e exatamente o que decide se vai
-    // precisar de rolagem ou nao
+    // pagina estivesse no topo, so pra calcular o tamanho BASE que
+    // depois e ampliado em 80%
     const availableH = Math.max(80, window.innerHeight - dom.pagePreviewWrap.offsetTop - 18);
-    const scale = Math.min(availableW / img.naturalWidth, availableH / img.naturalHeight, 1);
+    const fitScale = Math.min(availableW / img.naturalWidth, availableH / img.naturalHeight, 1);
+    const maxWidthScale = availableW / img.naturalWidth; // teto - nunca estoura os lados
+    const scale = Math.min(fitScale * PREVIEW_ZOOM, maxWidthScale);
     img.style.width = `${Math.round(img.naturalWidth * scale)}px`;
     img.style.height = 'auto';
   }
