@@ -1,0 +1,105 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #1a1a1e;
+  color: #eae7e1;
+  font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mono { font-family: "Consolas", "SF Mono", monospace; }
+
+#toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px 14px;
+  background: #16161a;
+  border-bottom: 1px solid #29292f;
+}
+
+.toolbar-group { display: flex; align-items: center; gap: 6px; }
+
+label { font-size: 12px; color: #9a9aa8; }
+
+button {
+  background: #1e1e23;
+  border: 1px solid #29292f;
+  color: #eae7e1;
+  border-radius: 5px;
+  padding: 7px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { background: #26262d; }
+button:disabled { opacity: 0.4; cursor: default; }
+button.primary { background: #ff5a3c; border-color: #ff5a3c; color: #1a0d08; font-weight: 600; }
+button.primary:hover:not(:disabled) { background: #ff7a5c; }
+
+input[type="range"] { accent-color: #ff5a3c; width: 100px; }
+input[type="number"] {
+  width: 60px; background: #111116; border: 1px solid #2a2a34; color: #eceef2;
+  border-radius: 4px; padding: 5px 6px; font-size: 12px;
+}
+input[type="color"] { width: 30px; height: 26px; padding: 0; border: 1px solid #2a2a34; border-radius: 4px; background: none; cursor: pointer; }
+select {
+  background: #111116; border: 1px solid #2a2a34; color: #eceef2; border-radius: 4px;
+  padding: 6px 8px; font-size: 12px;
+}
+
+#canvasWrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  min-height: 0;
+}
+
+#imageCanvas, #overlayCanvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+#overlayCanvas { cursor: crosshair; box-shadow: none; }
+
+#emptyState {
+  font-size: 15px;
+  color: #8a8a92;
+  text-align: center;
+  max-width: 320px;
+}
+
+#statusOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10,10,12,0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+#statusOverlay[hidden] { display: none; }
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255,255,255,0.2);
+  border-top-color: #ff5a3c;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }

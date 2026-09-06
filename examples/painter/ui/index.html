@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Painter</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="toolbar">
+    <div class="toolbar-group">
+      <span id="pageLabel" class="mono">Sem imagem carregada</span>
+      <button id="btnLoadPage" title="Carrega a imagem da página atualmente aberta no editor">Carregar página atual</button>
+    </div>
+
+    <div class="toolbar-group">
+      <label>Tela em branco</label>
+      <input id="blankWidth" type="number" min="1" value="800" title="Largura" />
+      <span class="mono">×</span>
+      <input id="blankHeight" type="number" min="1" value="600" title="Altura" />
+      <input id="blankColor" type="color" value="#ffffff" title="Cor de fundo" />
+      <button id="btnBlank">Criar</button>
+    </div>
+
+    <div class="toolbar-group">
+      <label>Ferramenta</label>
+      <select id="tool">
+        <option value="brush">Pincel</option>
+        <option value="bucket">Balde de tinta</option>
+        <option value="rectangle">Retângulo</option>
+        <option value="circle">Círculo</option>
+        <option value="line">Linha</option>
+      </select>
+    </div>
+
+    <div class="toolbar-group">
+      <label id="colorLabel">Cor</label>
+      <input id="color" type="color" value="#000000" />
+      <label id="fillColorLabel" class="shape-only" hidden>Preenchimento</label>
+      <input id="fillColor" class="shape-only" type="color" value="#ff0000" hidden />
+      <label id="useFillLabel" class="shape-only" hidden><input id="useFill" type="checkbox" /> preencher</label>
+    </div>
+
+    <div class="toolbar-group">
+      <label id="sizeLabel">Espessura</label>
+      <input id="sizeRange" type="range" min="1" max="80" value="10" />
+      <span id="sizeValue" class="mono">10px</span>
+    </div>
+
+    <div class="toolbar-group">
+      <button id="btnRotateCcw" title="Girar 90° anti-horário">⟲ 90°</button>
+      <button id="btnRotateCw" title="Girar 90° horário">⟳ 90°</button>
+      <button id="btnFlipH" title="Espelhar horizontal">⇋ H</button>
+      <button id="btnFlipV" title="Espelhar vertical">⇵ V</button>
+      <button id="btnBlur" title="Desfocar">Desfocar</button>
+      <input id="blurRadius" type="number" min="0.3" max="50" step="0.5" value="4" title="Raio do desfoque" />
+    </div>
+
+    <div class="toolbar-group">
+      <label>Redimensionar (largura)</label>
+      <input id="resizeWidth" type="number" min="1" placeholder="px" />
+      <button id="btnResize">Aplicar</button>
+    </div>
+
+    <div class="toolbar-group">
+      <button id="btnUndo" disabled>↶ Desfazer (Ctrl+Z)</button>
+      <button id="btnSave" class="primary" disabled>Salvar na página</button>
+    </div>
+  </div>
+
+  <div id="canvasWrap">
+    <div id="emptyState">Carregue a página atual ou crie uma tela em branco pra começar.</div>
+    <canvas id="imageCanvas" hidden></canvas>
+    <canvas id="overlayCanvas" hidden></canvas>
+    <div id="statusOverlay" hidden>
+      <div class="spinner"></div>
+      <span id="statusText">Processando...</span>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
