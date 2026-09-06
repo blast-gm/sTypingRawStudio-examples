@@ -10,6 +10,27 @@
  * leve enquanto arrasta) - a operacao de verdade (studio.draw / studio.image)
  * so acontece no FIM do gesto (solta o mouse/caneta), mandando os
  * dados brutos JA CAPTURADOS pro Core processar em resolucao completa.
+ *
+ * IMPORTANTE (desenho continuo/a mao livre): confirmar um traco no
+ * Core e uma viagem assincrona (IPC + processamento real) - por mais
+ * rapida que seja, esperar ELA terminar antes de deixar a pessoa
+ * comecar o PROXIMO traco cortaria completamente o desenho a mao
+ * livre (cada vez que solta a caneta pra recomecar em outro lugar, o
+ * app "trava" ate confirmar o anterior). Por isso:
+ * - Iniciar um traco/forma/balde NUNCA espera nenhum commit anterior
+ *   terminar (ver canStartDrawing) - so bloqueia durante uma
+ *   TRANSFORMACAO DE IMAGEM INTEIRA (girar/espelhar/etc), que troca a
+ *   base inteira e de fato nao pode rodar ao mesmo tempo que um traco.
+ * - O traco/forma recem-terminado continua VISIVEL no overlay (nao e
+ *   limpo na hora) ate o Core confirmar de verdade - ver
+ *   pendingPreviews. Limpar a previa ANTES do resultado voltar era o
+ *   que fazia o traco "sumir" um instante e voltar, cortando a
+ *   sensacao de desenho continuo.
+ * - Varios commits podem ficar enfileirados (runSerialized) se a
+ *   pessoa desenhar mais rapido que o Core confirma - cada um so
+ *   comeca depois que o anterior JA aplicou o resultado dele, pra
+ *   nunca ler um "antes" desatualizado nem correr o risco de um
+ *   terminar fuera de ordem e apagar o outro.
  */
 (function () {
   let requestSeq = 0;
@@ -82,9 +103,17 @@
 
   let pageKey = null;
   let hasImage = false;
-  let isProcessing = false;
   let isDrawing = false;
   let undoStack = [];
+
+  // true SO durante uma transformacao de imagem INTEIRA (carregar
+  // pagina, tela em branco, girar/espelhar/desfocar/redimensionar,
+  // desfazer, salvar) - essas trocam a base inteira e nao podem rodar
+  // ao mesmo tempo que um traco em andamento. NUNCA fica true so
+  // porque um traco/balde/forma esta sendo confirmado no Core (ver
+  // canStartDrawing) - e exatamente essa distincao que permite
+  // desenhar continuamente sem esperar cada traco confirmar.
+  let wholeImageBusy = false;
 
   // estado do gesto em andamento (pincel: pontos acumulados; formas:
   // ponto inicial, em coordenadas de EXIBICAO - convertidas pra
@@ -92,19 +121,27 @@
   let brushPoints = [];
   let shapeFrom = null;
 
-  function setStatus(text) {
+  function setStatus(text, isError) {
     dom.statusText.textContent = text;
+    if (isError) console.error('[painter]', text);
   }
 
-  function setProcessing(value) {
-    isProcessing = value;
-    dom.statusOverlay.hidden = !value;
-    dom.overlayCanvas.style.pointerEvents = value ? 'none' : 'auto';
-    dom.btnUndo.disabled = value || !undoStack.length;
-    dom.btnSave.disabled = value || !hasImage || !pageKey;
+  function canStartDrawing() {
+    return hasImage && !wholeImageBusy;
+  }
+
+  function refreshButtons() {
+    dom.btnUndo.disabled = wholeImageBusy || !undoStack.length;
+    dom.btnSave.disabled = wholeImageBusy || !hasImage || !pageKey;
     [dom.btnLoadPage, dom.btnBlank, dom.btnRotateCcw, dom.btnRotateCw, dom.btnFlipH, dom.btnFlipV, dom.btnBlur, dom.btnResize].forEach(
-      (btn) => { btn.disabled = value; }
+      (btn) => { btn.disabled = wholeImageBusy; }
     );
+  }
+
+  function setWholeImageBusy(value) {
+    wholeImageBusy = value;
+    dom.statusOverlay.hidden = !value;
+    refreshButtons();
   }
 
   // ------------------------------------------------------------
@@ -142,7 +179,7 @@
     });
     imageCtx.clearRect(0, 0, w, h);
     imageCtx.drawImage(fullCanvas, 0, 0, fullCanvas.width, fullCanvas.height, 0, 0, w, h);
-    overlayCtx.clearRect(0, 0, w, h);
+    redrawPendingPreviews();
   }
 
   window.addEventListener('resize', () => {
@@ -151,6 +188,7 @@
 
   function pushUndo() {
     undoStack.push(fullCanvas.toDataURL('image/png'));
+    refreshButtons();
   }
 
   function dataUrlToBase64(dataUrl) {
@@ -182,6 +220,113 @@
   }
 
   // ------------------------------------------------------------
+  // previas de tracos/formas AINDA NAO confirmadas pelo Core - ficam
+  // desenhadas no overlay desde o instante em que o gesto termina ate
+  // o resultado de verdade voltar, pra nao haver NENHUM instante em
+  // que o desenho "some" (ver nota no topo do arquivo). Cada entrada
+  // sabe se redesenhar sozinha (redrawPendingPreviews limpa tudo e
+  // manda cada uma se desenhar de novo, na ordem - preciso disso
+  // porque remover UMA previa exige limpar o overlay inteiro, e as
+  // outras ainda pendentes precisam reaparecer).
+  // ------------------------------------------------------------
+  let pendingPreviews = [];
+
+  function redrawPendingPreviews() {
+    overlayCtx.clearRect(0, 0, dom.overlayCanvas.width, dom.overlayCanvas.height);
+    for (const p of pendingPreviews) p.draw();
+  }
+
+  function addPendingPreview(drawFn) {
+    const entry = { draw: drawFn };
+    pendingPreviews.push(entry);
+    redrawPendingPreviews();
+    return entry;
+  }
+
+  function removePendingPreview(entry) {
+    const idx = pendingPreviews.indexOf(entry);
+    if (idx === -1) return;
+    pendingPreviews.splice(idx, 1);
+    redrawPendingPreviews();
+  }
+
+  /** Redesenha um traco de pincel INTEIRO no overlay (coordenadas dos
+   *  pontos em resolucao COMPLETA, convertidas pra exibicao aqui) -
+   *  mesmo algoritmo de segmento-por-segmento do Core (studio.draw.stroke),
+   *  so que como previa leve no navegador. */
+  function drawStrokeFull(points, color, baseWidth) {
+    if (!points.length || !fullCanvas.width) return;
+    const scale = dom.overlayCanvas.width / fullCanvas.width;
+    overlayCtx.strokeStyle = color;
+    overlayCtx.fillStyle = color;
+    overlayCtx.lineCap = 'round';
+    overlayCtx.lineJoin = 'round';
+
+    if (points.length === 1) {
+      const p = points[0];
+      const radius = Math.max(0.5, (baseWidth * (p.pressure ?? 1)) / 2) * scale;
+      overlayCtx.beginPath();
+      overlayCtx.arc(p.x * scale, p.y * scale, radius, 0, Math.PI * 2);
+      overlayCtx.fill();
+      return;
+    }
+
+    for (let i = 1; i < points.length; i++) {
+      const a = points[i - 1];
+      const b = points[i];
+      const pressure = ((a.pressure ?? 1) + (b.pressure ?? 1)) / 2;
+      overlayCtx.lineWidth = Math.max(0.5, baseWidth * pressure) * scale;
+      overlayCtx.beginPath();
+      overlayCtx.moveTo(a.x * scale, a.y * scale);
+      overlayCtx.lineTo(b.x * scale, b.y * scale);
+      overlayCtx.stroke();
+    }
+  }
+
+  /** Redesenha uma forma no visual FINAL (solido, com as cores/espessura
+   *  reais) no overlay - substitui a previa tracejada usada so durante
+   *  o arraste (ver drawShapeDragPreview). */
+  function drawShapeFull(type, from, to, strokeColor, strokeWidth, fillColor) {
+    if (!fullCanvas.width) return;
+    const scale = dom.overlayCanvas.width / fullCanvas.width;
+    const df = { x: from.x * scale, y: from.y * scale };
+    const dt = { x: to.x * scale, y: to.y * scale };
+
+    overlayCtx.save();
+    overlayCtx.beginPath();
+    if (type === 'rectangle') {
+      overlayCtx.rect(Math.min(df.x, dt.x), Math.min(df.y, dt.y), Math.abs(dt.x - df.x), Math.abs(dt.y - df.y));
+    } else if (type === 'circle') {
+      overlayCtx.arc(df.x, df.y, Math.hypot(dt.x - df.x, dt.y - df.y), 0, Math.PI * 2);
+    } else {
+      overlayCtx.moveTo(df.x, df.y);
+      overlayCtx.lineTo(dt.x, dt.y);
+    }
+    if (fillColor && type !== 'line') {
+      overlayCtx.fillStyle = fillColor;
+      overlayCtx.fill();
+    }
+    overlayCtx.strokeStyle = strokeColor;
+    overlayCtx.lineWidth = strokeWidth * scale;
+    overlayCtx.lineCap = 'round';
+    overlayCtx.stroke();
+    overlayCtx.restore();
+  }
+
+  // ------------------------------------------------------------
+  // fila de commits - serializa studio.draw/studio.image (cada um so
+  // comeca depois que o anterior JA aplicou o resultado dele) sem
+  // bloquear a INTERACAO (iniciar um novo traco nunca espera a fila).
+  // Ver nota no topo do arquivo pra motivacao completa.
+  // ------------------------------------------------------------
+  let commitChain = Promise.resolve();
+  function runSerialized(fn) {
+    const run = commitChain.then(fn, fn);
+    commitChain = run.catch(() => {});
+    return run;
+  }
+
+  // ------------------------------------------------------------
   // desfazer
   // ------------------------------------------------------------
   document.addEventListener('keydown', (e) => {
@@ -193,53 +338,66 @@
   dom.btnUndo.addEventListener('click', undo);
 
   async function undo() {
-    if (isProcessing || !undoStack.length) return;
-    const previous = undoStack.pop();
-    await applyResultBase64(dataUrlToBase64(previous));
-    dom.btnUndo.disabled = !undoStack.length;
+    if (wholeImageBusy || !undoStack.length) return;
+    // passa pela MESMA fila dos commits de traco - sem isso, um traco
+    // ainda pendente de confirmar poderia terminar DEPOIS do undo e
+    // reaplicar por cima, "desfazendo o desfazer" sem a pessoa perceber
+    await runSerialized(async () => {
+      setWholeImageBusy(true);
+      try {
+        const previous = undoStack.pop();
+        await applyResultBase64(dataUrlToBase64(previous));
+      } finally {
+        setWholeImageBusy(false);
+      }
+    });
   }
 
   // ------------------------------------------------------------
   // carregar pagina atual / tela em branco
   // ------------------------------------------------------------
-  dom.btnLoadPage.addEventListener('click', async () => {
-    setProcessing(true);
-    setStatus('Carregando página...');
-    try {
-      const result = await callStudio({ type: 'load-current-page' });
-      pageKey = result.pageKey;
-      dom.pageLabel.textContent = `Página: ${pageKey}`;
-      await loadImageIntoCanvases(result.imageBase64);
-      undoStack = [];
-      setStatus('');
-    } catch (err) {
-      setStatus(`Erro: ${err.message}`);
-    } finally {
-      setProcessing(false);
-    }
-  });
+  dom.btnLoadPage.addEventListener('click', () =>
+    runSerialized(async () => {
+      setWholeImageBusy(true);
+      setStatus('Carregando página...');
+      try {
+        const result = await callStudio({ type: 'load-current-page' });
+        pageKey = result.pageKey;
+        dom.pageLabel.textContent = `Página: ${pageKey}`;
+        await loadImageIntoCanvases(result.imageBase64);
+        undoStack = [];
+        setStatus('');
+      } catch (err) {
+        setStatus(`Erro: ${err.message}`, true);
+      } finally {
+        setWholeImageBusy(false);
+      }
+    })
+  );
 
-  dom.btnBlank.addEventListener('click', async () => {
-    setProcessing(true);
-    setStatus('Criando tela em branco...');
-    try {
-      const result = await callStudio({
-        type: 'new-blank-canvas',
-        width: Number(dom.blankWidth.value) || 800,
-        height: Number(dom.blankHeight.value) || 600,
-        backgroundColor: dom.blankColor.value,
-      });
-      pageKey = null; // tela solta, nao vinculada a nenhuma pagina ainda
-      dom.pageLabel.textContent = 'Tela em branco (não salva em nenhuma página)';
-      await loadImageIntoCanvases(result.imageBase64);
-      undoStack = [];
-      setStatus('');
-    } catch (err) {
-      setStatus(`Erro: ${err.message}`);
-    } finally {
-      setProcessing(false);
-    }
-  });
+  dom.btnBlank.addEventListener('click', () =>
+    runSerialized(async () => {
+      setWholeImageBusy(true);
+      setStatus('Criando tela em branco...');
+      try {
+        const result = await callStudio({
+          type: 'new-blank-canvas',
+          width: Number(dom.blankWidth.value) || 800,
+          height: Number(dom.blankHeight.value) || 600,
+          backgroundColor: dom.blankColor.value,
+        });
+        pageKey = null; // tela solta, nao vinculada a nenhuma pagina ainda
+        dom.pageLabel.textContent = 'Tela em branco (não salva em nenhuma página)';
+        await loadImageIntoCanvases(result.imageBase64);
+        undoStack = [];
+        setStatus('');
+      } catch (err) {
+        setStatus(`Erro: ${err.message}`, true);
+      } finally {
+        setWholeImageBusy(false);
+      }
+    })
+  );
 
   // ------------------------------------------------------------
   // selecao de ferramenta - ajusta os campos visiveis/rotulos
@@ -300,24 +458,46 @@
     return evt.pointerType === 'pen' ? evt.pressure : 1;
   }
 
+  function releasePointerCaptureSafe(evt) {
+    try {
+      dom.overlayCanvas.releasePointerCapture(evt.pointerId);
+    } catch (err) {
+      // ja liberado/nao capturado - sem problema nenhum ignorar
+    }
+  }
+
   function startDrawing(evt) {
-    if (isProcessing || !hasImage) return;
+    if (!canStartDrawing()) return;
     evt.preventDefault();
+
+    // TRAVA DE CAPTURA: prende TODOS os eventos seguintes desse mesmo
+    // ponteiro (move/up) neste canvas, mesmo que a caneta saia da area
+    // dele ou o SO troque qual elemento "esta por baixo" no meio do
+    // gesto. Sem isso, uma caneta/tablet real perde pointermove no
+    // meio do traco (o navegador some de entregar os eventos pro
+    // elemento certo assim que o ponteiro cruza alguma borda/limite) -
+    // era exatamente essa perda de pontos intermediarios que fazia uma
+    // curva de verdade virar uma linha reta (so o inicio e o fim
+    // sobreviviam). setPointerCapture existe pra isso.
+    try {
+      dom.overlayCanvas.setPointerCapture(evt.pointerId);
+    } catch (err) {
+      // navegador/dispositivo sem suporte - segue sem capture, degrada
+      // graciosamente pro comportamento de antes
+    }
+
     isDrawing = true;
     const pos = getDisplayPos(evt);
     const tool = dom.tool.value;
 
     if (tool === 'brush') {
       brushPoints = [{ ...toFullRes(pos), pressure: readPressure(evt) }];
-      overlayCtx.strokeStyle = dom.color.value;
-      overlayCtx.lineWidth = Number(dom.sizeRange.value) * (dom.overlayCanvas.width / fullCanvas.width);
-      overlayCtx.lineCap = 'round';
-      overlayCtx.lineJoin = 'round';
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(pos.x, pos.y);
     } else if (tool === 'bucket') {
-      commitBucket(pos);
       isDrawing = false;
+      releasePointerCaptureSafe(evt);
+      const color = dom.color.value;
+      const tolerance = Number(dom.sizeRange.value);
+      runSerialized(() => commitBucket(pos, color, tolerance));
     } else {
       shapeFrom = pos;
     }
@@ -326,20 +506,48 @@
   function moveDrawing(evt) {
     if (!isDrawing) return;
     evt.preventDefault();
+
+    // NAO usar "evt.buttons === 0" aqui pra detectar "soltou" - em
+    // varios drivers de mesa digitalizadora/tablet reais, "buttons"
+    // vem 0 (ou piscando entre 0 e 1) MESMO com a caneta pressionada
+    // de verdade o tempo todo (so "pressure" e confiavel nesse
+    // hardware). Confiar em "buttons" pra decidir parar o traco
+    // fragmentava um traco continuo em varios pedacinhos curtos (cada
+    // leitura ruidosa de buttons=0 cortava o traco ali, e um novo
+    // pointerdown espurio do mesmo driver recomecava outro pedaco).
+    // setPointerCapture (ver startDrawing) ja resolve o motivo
+    // original de precisar dessa rede de seguranca (pointerup/pointercancel
+    // agora chegam de forma confiavel, mesmo se a caneta sair fisicamente
+    // da area do canvas) - nao precisa mais adivinhar pelo "buttons".
+
     const pos = getDisplayPos(evt);
     const tool = dom.tool.value;
 
     if (tool === 'brush') {
       brushPoints.push({ ...toFullRes(pos), pressure: readPressure(evt) });
-      overlayCtx.lineTo(pos.x, pos.y);
-      overlayCtx.stroke();
+      // previa leve ao vivo - so o segmento novo, direto no overlay
+      // (redrawPendingPreviews cuida de redesenhar o traco INTEIRO
+      // quando algum outro pendente terminar antes deste)
+      const prev = brushPoints[brushPoints.length - 2];
+      if (prev) {
+        const scale = dom.overlayCanvas.width / fullCanvas.width;
+        const pressure = ((prev.pressure ?? 1) + readPressure(evt)) / 2;
+        overlayCtx.strokeStyle = dom.color.value;
+        overlayCtx.lineCap = 'round';
+        overlayCtx.lineJoin = 'round';
+        overlayCtx.lineWidth = Math.max(0.5, Number(dom.sizeRange.value) * pressure) * scale;
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(prev.x * scale, prev.y * scale);
+        overlayCtx.lineTo(pos.x, pos.y);
+        overlayCtx.stroke();
+      }
     } else if (shapeFrom) {
-      overlayCtx.clearRect(0, 0, dom.overlayCanvas.width, dom.overlayCanvas.height);
-      drawShapePreview(tool, shapeFrom, pos);
+      redrawPendingPreviews(); // mantem qualquer previa de OUTRO gesto ainda pendente
+      drawShapeDragPreview(tool, shapeFrom, pos);
     }
   }
 
-  function drawShapePreview(tool, from, to) {
+  function drawShapeDragPreview(tool, from, to) {
     overlayCtx.save();
     overlayCtx.strokeStyle = dom.color.value;
     overlayCtx.lineWidth = 1.5;
@@ -357,115 +565,125 @@
     overlayCtx.restore();
   }
 
-  async function stopDrawing(evt) {
+  function stopDrawing(evt) {
     if (!isDrawing) return;
     isDrawing = false;
+    releasePointerCaptureSafe(evt);
     const tool = dom.tool.value;
-    overlayCtx.clearRect(0, 0, dom.overlayCanvas.width, dom.overlayCanvas.height);
 
     if (tool === 'brush') {
-      if (brushPoints.length) await commitStroke(brushPoints);
+      const points = brushPoints;
       brushPoints = [];
+      if (!points.length) return;
+      const color = dom.color.value;
+      const baseWidth = Number(dom.sizeRange.value);
+      // fica visivel (previa) ate o Core confirmar de verdade - NUNCA
+      // limpa o overlay aqui, isso que cortava o traco antes
+      const preview = addPendingPreview(() => drawStrokeFull(points, color, baseWidth));
+      runSerialized(() => commitStroke(points, color, baseWidth)).finally(() => removePendingPreview(preview));
     } else if (shapeFrom) {
-      const to = toFullRes(getDisplayPos(evt));
-      await commitShape(tool, toFullRes(shapeFrom), to);
+      const fromFull = toFullRes(shapeFrom);
       shapeFrom = null;
+      const toFull = toFullRes(getDisplayPos(evt));
+      const strokeColor = dom.color.value;
+      const strokeWidth = Number(dom.sizeRange.value);
+      const fillColor = dom.useFill.checked && tool !== 'line' ? dom.fillColor.value : null;
+      const preview = addPendingPreview(() => drawShapeFull(tool, fromFull, toFull, strokeColor, strokeWidth, fillColor));
+      runSerialized(() => commitShape(tool, fromFull, toFull, strokeColor, strokeWidth, fillColor)).finally(() =>
+        removePendingPreview(preview)
+      );
     }
   }
 
   dom.overlayCanvas.addEventListener('pointerdown', startDrawing);
   dom.overlayCanvas.addEventListener('pointermove', moveDrawing);
   window.addEventListener('pointerup', stopDrawing);
+  // pointercancel: o navegador/SO interrompeu esse ponteiro no meio do
+  // gesto (ex: gesto do sistema, troca de janela, palm rejection) -
+  // evento legitimo e raro, diferente de reler "buttons" a cada
+  // pointermove (que se mostrou nao confiavel em tablets reais) -
+  // trata igual um "soltou" pra nao deixar isDrawing preso.
+  window.addEventListener('pointercancel', stopDrawing);
 
   // ------------------------------------------------------------
-  // commits - so AQUI que studio.draw/studio.image entram em cena,
-  // sempre no FIM do gesto, com os dados ja capturados
+  // commits - so AQUI que studio.draw/studio.image entram em cena, no
+  // FIM do gesto, com os dados JA CAPTURADOS (cores/espessura/tolerancia
+  // vem como PARAMETRO, snapshot do momento do gesto - nunca lidos de
+  // `dom.*` aqui dentro, porque por essa funcao poder rodar mais tarde
+  // - enfileirada atras de outro commit - a pessoa pode ja ter trocado
+  // de cor/ferramenta pro PROXIMO traco antes deste aqui rodar de verdade).
+  // Nao bloqueiam a interacao (sem setWholeImageBusy) - ver nota no
+  // topo do arquivo.
   // ------------------------------------------------------------
-  async function commitStroke(points) {
-    setProcessing(true);
-    setStatus('Aplicando traço...');
+  async function commitStroke(points, color, baseWidth) {
     const before = fullCanvasBase64();
     try {
       const result = await callStudio({
         type: 'stroke',
         imageBase64: before,
         points,
-        opts: { color: dom.color.value, baseWidth: Number(dom.sizeRange.value), pressureAffectsWidth: true },
+        opts: { color, baseWidth, pressureAffectsWidth: true },
       });
       pushUndo();
       await applyResultBase64(result.imageBase64);
-      setStatus('');
     } catch (err) {
-      setStatus(`Erro: ${err.message}`);
-    } finally {
-      setProcessing(false);
+      setStatus(`Erro ao aplicar traço: ${err.message}`, true);
     }
   }
 
-  async function commitBucket(displayPos) {
-    setProcessing(true);
-    setStatus('Preenchendo...');
+  async function commitBucket(displayPos, color, tolerance) {
     const before = fullCanvasBase64();
     try {
       const result = await callStudio({
         type: 'flood-fill',
         imageBase64: before,
         point: toFullRes(displayPos),
-        color: dom.color.value,
-        opts: { tolerance: Number(dom.sizeRange.value) },
+        color,
+        opts: { tolerance },
       });
       pushUndo();
       await applyResultBase64(result.imageBase64);
-      setStatus('');
     } catch (err) {
-      setStatus(`Erro: ${err.message}`);
-    } finally {
-      setProcessing(false);
+      setStatus(`Erro ao preencher: ${err.message}`, true);
     }
   }
 
-  async function commitShape(type, from, to) {
-    setProcessing(true);
-    setStatus('Desenhando forma...');
+  async function commitShape(type, from, to, strokeColor, strokeWidth, fillColor) {
     const before = fullCanvasBase64();
     try {
-      const shape = {
-        type,
-        from,
-        to,
-        strokeColor: dom.color.value,
-        strokeWidth: Number(dom.sizeRange.value),
-      };
-      if (dom.useFill.checked && type !== 'line') shape.fillColor = dom.fillColor.value;
+      const shape = { type, from, to, strokeColor, strokeWidth };
+      if (fillColor) shape.fillColor = fillColor;
       const result = await callStudio({ type: 'shape', imageBase64: before, shape });
       pushUndo();
       await applyResultBase64(result.imageBase64);
-      setStatus('');
     } catch (err) {
-      setStatus(`Erro: ${err.message}`);
-    } finally {
-      setProcessing(false);
+      setStatus(`Erro ao desenhar forma: ${err.message}`, true);
     }
   }
 
   // ------------------------------------------------------------
-  // transformacoes (studio.image) - sempre na imagem INTEIRA
+  // transformacoes (studio.image) - sempre na imagem INTEIRA, por isso
+  // passam por wholeImageBusy (bloqueiam novos tracos) E pela mesma
+  // fila serializada (esperam qualquer traco pendente confirmar antes
+  // de rodar, garantindo que operam sobre o estado mais recente).
   // ------------------------------------------------------------
-  async function applyImageOp(type, extra, label) {
+  function applyImageOp(type, extra, label) {
     if (!hasImage) return;
-    setProcessing(true);
-    setStatus(label);
-    const before = fullCanvasBase64();
-    try {
-      const result = await callStudio({ type, imageBase64: before, ...extra });
-      pushUndo();
-      await applyResultBase64(result.imageBase64);
-      setStatus('');
-    } catch (err) {
-      setStatus(`Erro: ${err.message}`);
-    } finally {
-      setProcessing(false);
-    }
+    return runSerialized(async () => {
+      setWholeImageBusy(true);
+      setStatus(label);
+      const before = fullCanvasBase64();
+      try {
+        const result = await callStudio({ type, imageBase64: before, ...extra });
+        pushUndo();
+        await applyResultBase64(result.imageBase64);
+        setStatus('');
+      } catch (err) {
+        setStatus(`Erro: ${err.message}`, true);
+      } finally {
+        setWholeImageBusy(false);
+      }
+    });
   }
 
   dom.btnRotateCcw.addEventListener('click', () => applyImageOp('rotate', { degrees: -90 }, 'Girando...'));
@@ -480,21 +698,25 @@
   });
 
   // ------------------------------------------------------------
-  // salvar na pagina
+  // salvar na pagina - tambem espera a fila (qualquer traco ainda
+  // pendente de confirmar) pra garantir que salva o estado mais
+  // recente de verdade, nao um instantaneo no meio de uma confirmacao.
   // ------------------------------------------------------------
-  dom.btnSave.addEventListener('click', async () => {
+  dom.btnSave.addEventListener('click', () => {
     if (!pageKey || !hasImage) return;
-    setProcessing(true);
-    setStatus('Salvando na página...');
-    try {
-      await callStudio({ type: 'save-to-page', pageKey, imageBase64: fullCanvasBase64() });
-      setStatus('Salvo! O editor já mostra o resultado.');
-    } catch (err) {
-      setStatus(`Erro ao salvar: ${err.message}`);
-    } finally {
-      setProcessing(false);
-    }
+    return runSerialized(async () => {
+      setWholeImageBusy(true);
+      setStatus('Salvando na página...');
+      try {
+        await callStudio({ type: 'save-to-page', pageKey, imageBase64: fullCanvasBase64() });
+        setStatus('Salvo! O editor já mostra o resultado.');
+      } catch (err) {
+        setStatus(`Erro ao salvar: ${err.message}`, true);
+      } finally {
+        setWholeImageBusy(false);
+      }
+    });
   });
 
-  setProcessing(false);
+  setWholeImageBusy(false);
 })();

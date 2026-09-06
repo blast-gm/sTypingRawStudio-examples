@@ -72,7 +72,16 @@ select {
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
 
-#overlayCanvas { cursor: crosshair; box-shadow: none; }
+#overlayCanvas {
+  cursor: crosshair;
+  box-shadow: none;
+  /* SEM ISSO, o navegador interpreta um traco de caneta/dedo como um
+     possivel gesto nativo de rolar/zoom da PAGINA, e as vezes CANCELA
+     o ponteiro no meio do traco (evento pointercancel) pra assumir
+     esse gesto - foi confirmado sendo a causa real dos tracos saindo
+     fragmentados em pedacinhos com uma caneta/tablet real. */
+  touch-action: none;
+}
 
 #emptyState {
   font-size: 15px;
