@@ -125,6 +125,16 @@
     applyPanTransform();
   }
 
+  // O painel roda dentro de um IFRAME - "segurar espaco" so e capturado
+  // pelo keydown abaixo se ESTE frame (nao a janela principal do app)
+  // tiver o foco do teclado. Sem clicar em nada primeiro, o foco pode
+  // estar em qualquer outro lugar do app, entao pressionar espaco nao
+  // fazia NADA (nem sequer preventDefault) e o mousedown seguinte caia
+  // direto no fluxo normal de desenho/limpeza - exatamente o bug
+  // reportado. Ganhar o foco assim que o mouse ENTRA na area do canvas
+  // (sem exigir um clique antes) resolve isso.
+  dom.canvasWrap.addEventListener('mouseenter', () => window.focus());
+
   window.addEventListener('keydown', (e) => {
     if (isTypingTarget(document.activeElement)) return;
     if (e.code === 'Space' && !spaceDown) {

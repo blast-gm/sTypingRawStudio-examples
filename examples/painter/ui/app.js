@@ -165,6 +165,15 @@
     applyPanTransform();
   }
 
+  // O painel roda dentro de um IFRAME - "segurar espaco" so e capturado
+  // pelo keydown (mais abaixo) se ESTE frame (nao a janela principal do
+  // app) tiver o foco do teclado. Sem clicar em nada primeiro, o foco
+  // pode estar em qualquer outro lugar do app, entao pressionar espaco
+  // nao fazia NADA e o pointerdown seguinte caia direto no fluxo normal
+  // de desenho. Ganhar o foco assim que o mouse ENTRA na area do canvas
+  // (sem exigir um clique antes) resolve isso.
+  dom.canvasWrap.addEventListener('mouseenter', () => window.focus());
+
   function setStatus(text, isError) {
     dom.statusText.textContent = text;
     if (isError) console.error('[painter]', text);
