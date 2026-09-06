@@ -113,12 +113,13 @@
       .filter((line) => line.trim());
   }
 
-  // tamanho da previa: 80% MAIOR do que o tanto que caberia inteiro sem
-  // precisar rolar (pedido explicito - o "cabe sem rolar" original
-  // ficou pequeno demais pra ser util) - pode digitar rolagem vertical
-  // à vontade, a unica coisa que NUNCA pode e passar da largura
+  // tamanho da previa: 2.7x o tanto que caberia inteiro sem precisar
+  // rolar (pedidos explicitos em sequencia: 80% maior, depois mais 50%
+  // maior ainda em cima disso - o "cabe sem rolar" original ficou
+  // pequeno demais pra ser util) - pode pedir rolagem vertical a
+  // vontade, a unica coisa que NUNCA pode e passar da largura
   // disponivel (nunca encostar nas laterais).
-  const PREVIEW_ZOOM = 1.8;
+  const PREVIEW_ZOOM = 1.8 * 1.5;
 
   function fitPreviewImage() {
     const img = dom.pagePreviewImg;
