@@ -31,12 +31,26 @@
  * painel ficou aberto.
  */
 module.exports = function (studio) {
-  // "lama-manga.onnx" (mayocream/lama-manga-onnx, Apache-2.0) - mesmo
-  // LaMa generico de antes ("lama_fp32.onnx"), mas fine-tuned em ~300 mil
-  // imagens de mangá/anime, reconstruindo screentone/trama muito melhor
-  // (o modelo generico, treinado majoritariamente em fotos, costumava
-  // deixar uma "mancha" mais clara/lisa em vez do pontilhado da trama).
-  const MODEL_PATH = 'models/lama-manga.onnx';
+  // dois modelos de reconstrucao disponiveis, escolhidos no proprio
+  // painel (settings box) e guardados por projeto/instalacao via
+  // studio.settings - "manga" (lama-manga.onnx, mayocream/lama-manga-onnx,
+  // Apache-2.0, fine-tuned em ~300 mil imagens de mangá/anime) e o
+  // padrao, porque reconstroi screentone/trama muito melhor que o
+  // generico (que, treinado majoritariamente em fotos, costumava deixar
+  // uma "mancha" mais clara/lisa em vez do pontilhado da trama) - mas
+  // o generico continua disponivel pra quem preferir (ex: ilustracao
+  // colorida/realista sem trama nenhuma, onde o fine-tuning em mangá
+  // pode nao ajudar).
+  const MODELS = {
+    manga: 'models/lama-manga.onnx',
+    generic: 'models/lama_fp32.onnx',
+  };
+  const DEFAULT_MODEL = 'manga';
+
+  function getSettings() {
+    const model = studio.settings.get('model');
+    return { model: MODELS[model] ? model : DEFAULT_MODEL };
+  }
 
   async function getCleanablePages() {
     const info = await studio.project.getInfo();
@@ -47,6 +61,14 @@ module.exports = function (studio) {
 
   async function handlePanelMessage(msg) {
     switch (msg && msg.type) {
+      case 'get-settings':
+        return getSettings();
+
+      case 'save-settings': {
+        studio.settings.set('model', MODELS[msg.model] ? msg.model : DEFAULT_MODEL);
+        return { ok: true };
+      }
+
       // lista TODAS as paginas editaveis (com raw e/ou pages, ver
       // getCleanablePages) - o painel usa isso pra permitir navegar
       // livremente entre elas (Anterior/Proxima), nao so avancar pra
@@ -68,7 +90,8 @@ module.exports = function (studio) {
       }
 
       case 'clean-stroke': {
-        const resultBase64 = await studio.image.inpaint(msg.imageBase64, msg.maskBase64, MODEL_PATH);
+        const modelPath = MODELS[getSettings().model];
+        const resultBase64 = await studio.image.inpaint(msg.imageBase64, msg.maskBase64, modelPath);
         return { imageBase64: resultBase64 };
       }
 

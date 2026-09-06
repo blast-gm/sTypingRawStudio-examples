@@ -35,6 +35,7 @@
 
   const dom = {
     toolbar: el('toolbar'),
+    modelSelect: el('modelSelect'),
     brushSize: el('brushSize'),
     brushSizeLabel: el('brushSizeLabel'),
     pageLabel: el('pageLabel'),
@@ -206,6 +207,13 @@
   dom.brushSizeLabel.textContent = `${dom.brushSize.value}px`;
   dom.brushSize.addEventListener('input', () => {
     dom.brushSizeLabel.textContent = `${dom.brushSize.value}px`;
+  });
+
+  // salva assim que troca (sem botao "Salvar" separado - e so uma
+  // escolha, nao vale a pena um passo extra) - so vale pro PROXIMO
+  // traco confirmado, nunca muda o modelo de um traco ja em andamento
+  dom.modelSelect.addEventListener('change', () => {
+    callStudio({ type: 'save-settings', model: dom.modelSelect.value });
   });
 
   function setStatus(text) {
@@ -591,6 +599,9 @@
   // ou nao - ver getCleanablePages em index.js)
   // ------------------------------------------------------------
   async function init() {
+    const settings = await callStudio({ type: 'get-settings' });
+    dom.modelSelect.value = settings.model;
+
     setProcessing(true);
     setStatus('Carregando página...');
 

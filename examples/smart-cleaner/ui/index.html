@@ -6,6 +6,22 @@
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <details id="settingsBox">
+    <summary>⚙ Configurações</summary>
+    <div class="settingsBody">
+      <label for="modelSelect">Modelo de reconstrução (IA)</label>
+      <select id="modelSelect">
+        <option value="manga">LaMa Manga (recomendado - fine-tuned em mangá/anime)</option>
+        <option value="generic">LaMa Genérico (treinado em fotos)</option>
+      </select>
+      <p class="hint">
+        Define qual modelo reconstrói a área apagada. "LaMa Manga" costuma reconstruir
+        tramas/screentone bem melhor; "LaMa Genérico" pode funcionar melhor em ilustrações
+        realistas/coloridas sem trama. Aplica no PRÓXIMO traço - já em andamento não muda.
+      </p>
+    </div>
+  </details>
+
   <div id="toolbar">
     <div class="toolbar-group">
       <label>Pincel</label>
