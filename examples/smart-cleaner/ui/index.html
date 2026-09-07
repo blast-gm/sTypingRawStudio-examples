@@ -29,6 +29,13 @@
       <span id="brushSizeLabel" class="mono">36px</span>
     </div>
     <div class="toolbar-group">
+      <label for="cleanMode" title="Rápido: preenche direto se detectar fundo liso (mais rápido). Sempre IA: ignora essa detecção e reconstrói via IA sempre - use quando a área tem arte/trama de verdade por baixo.">Limpeza</label>
+      <select id="cleanMode">
+        <option value="lite">Rápido (detecta fundo liso)</option>
+        <option value="full">Sempre IA (força reconstrução)</option>
+      </select>
+    </div>
+    <div class="toolbar-group">
       <button id="prevPageBtn" title="Página anterior" disabled>← Anterior</button>
       <span id="pageLabel" class="mono">-</span>
       <button id="nextPageBtn" title="Próxima página" disabled>Próxima →</button>

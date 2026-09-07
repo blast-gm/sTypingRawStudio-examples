@@ -91,7 +91,12 @@ module.exports = function (studio) {
 
       case 'clean-stroke': {
         const modelPath = MODELS[getSettings().model];
-        const resultBase64 = await studio.image.inpaint(msg.imageBase64, msg.maskBase64, modelPath);
+        // mode: 'lite' (padrao, mais rapido - deixa o atalho de
+        // preenchimento liso automatico decidir) ou 'full' (sempre
+        // reconstroi via IA, ignora o atalho - pra quando ja se sabe
+        // que a area tem arte/textura de verdade por baixo, ver
+        // docs/extensions/image-api.md)
+        const resultBase64 = await studio.image.inpaint(msg.imageBase64, msg.maskBase64, modelPath, { mode: msg.mode });
         return { imageBase64: resultBase64 };
       }
 

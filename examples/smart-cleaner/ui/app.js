@@ -36,6 +36,7 @@
   const dom = {
     toolbar: el('toolbar'),
     modelSelect: el('modelSelect'),
+    cleanMode: el('cleanMode'),
     brushSize: el('brushSize'),
     brushSizeLabel: el('brushSizeLabel'),
     pageLabel: el('pageLabel'),
@@ -436,6 +437,7 @@
         type: 'clean-stroke',
         imageBase64: dataUrlToBase64(beforeDataUrl),
         maskBase64: dataUrlToBase64(maskDataUrl),
+        mode: dom.cleanMode.value,
       });
 
       getUndoStack(currentPageKey()).push(beforeDataUrl);
