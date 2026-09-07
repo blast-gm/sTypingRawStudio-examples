@@ -174,6 +174,19 @@
   // (sem exigir um clique antes) resolve isso.
   dom.canvasWrap.addEventListener('mouseenter', () => window.focus());
 
+  // Um <select> (ex: tool) CONTINUA com foco depois de escolher uma
+  // opcao - o navegador trata espaco com um select focado como comando
+  // NATIVO dele (abrir/avancar a opcao), antes disso sequer chegar no
+  // keydown mais abaixo - nao tem "preventDefault" que resolva isso a
+  // partir do listener de baixo, porque o comportamento acontece no
+  // proprio elemento focado. Ao trocar de opcao, tira o foco do select
+  // na hora - nenhum select desta extensao precisa continuar focado
+  // depois de escolhido, e assim segurar espaco pra navegar o canvas
+  // logo em seguida funciona sem ficar trocando a ferramenta sozinho.
+  document.addEventListener('change', (e) => {
+    if (e.target && e.target.tagName === 'SELECT') e.target.blur();
+  });
+
   function setStatus(text, isError) {
     dom.statusText.textContent = text;
     if (isError) console.error('[painter]', text);
