@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TRaw Editor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="side-head">
+        <div><div class="eyebrow">PROJETO</div><h1>Arquivos TRaw</h1></div>
+        <button id="refreshBtn" class="icon-btn" title="Atualizar">↻</button>
+      </div>
+      <div class="file-actions"><button id="newBtn" class="primary">＋ Novo</button></div>
+      <div id="fileList" class="file-list"></div>
+      <div class="side-foot"><span id="fileCount">0 arquivos</span></div>
+    </aside>
+
+    <main class="main">
+      <header class="toolbar">
+        <div class="file-title-wrap">
+          <div class="file-icon">TR</div>
+          <div>
+            <div id="fileName" class="file-name">Nenhum arquivo selecionado</div>
+            <div id="fileMeta" class="file-meta">Selecione um .traw</div>
+          </div>
+        </div>
+        <div class="toolbar-actions">
+          <button id="deleteBtn" class="danger ghost" disabled>Excluir</button>
+          <button id="revertBtn" class="ghost" disabled>Reverter</button>
+          <button id="saveBtn" class="primary" disabled>Salvar</button>
+        </div>
+      </header>
+
+      <section id="editorArea" class="editor-area empty">
+        <div class="empty-state">
+          <div class="empty-logo">TR</div>
+          <h2>Editor de arquivos .traw</h2>
+          <p>Selecione um arquivo na esquerda ou crie um novo arquivo customizado.</p>
+        </div>
+      </section>
+      <footer class="statusbar"><span id="statusText">Pronto</span><span id="dirtyStatus"></span></footer>
+    </main>
+  </div>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head"><h2>Novo arquivo TRaw</h2><button id="modalClose" class="icon-btn">×</button></div>
+      <label>Nome do arquivo<input id="newName" type="text" placeholder="ex.: personagens.traw" autocomplete="off"></label>
+      <label>Título<input id="newTitle" type="text" placeholder="ex.: Personagens" autocomplete="off"></label>
+      <label>Primeira seção<input id="newSection" type="text" placeholder="ex.: personagens" autocomplete="off"></label>
+      <div class="modal-actions"><button id="modalCancel" class="ghost">Cancelar</button><button id="modalCreate" class="primary">Criar arquivo</button></div>
+      <div id="modalError" class="modal-error"></div>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head"><h2 id="confirmTitle">Excluir arquivo</h2><button id="confirmClose" class="icon-btn">×</button></div>
+      <p id="confirmMessage" class="confirm-message"></p>
+      <div class="modal-actions"><button id="confirmCancel" class="ghost">Cancelar</button><button id="confirmOk" class="primary danger">Excluir</button></div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

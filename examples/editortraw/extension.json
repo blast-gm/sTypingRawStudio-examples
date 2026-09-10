@@ -1,0 +1,11 @@
+{
+  "id": "traw-editor",
+  "name": "TRaw Editor",
+  "version": "1.0.0",
+  "apiVersion": "1.0",
+  "entry": "index.js",
+  "description": "Editor estruturado para arquivos .traw do projeto aberto.",
+  "author": "sTraw Studio",
+  "icon": "file-earmark-text",
+  "permissions": ["project:read", "project:write"]
+}
