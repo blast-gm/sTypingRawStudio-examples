@@ -131,7 +131,7 @@
   // pelo keydown abaixo se ESTE frame (nao a janela principal do app)
   // tiver o foco do teclado. Sem clicar em nada primeiro, o foco pode
   // estar em qualquer outro lugar do app, entao pressionar espaco nao
-  // fazia NADA (nem sequer preventDefault) e o mousedown seguinte caia
+  // fazia NADA (nem sequer preventDefault) e o pointerdown seguinte caia
   // direto no fluxo normal de desenho/limpeza - exatamente o bug
   // reportado. Ganhar o foco assim que o mouse ENTRA na area do canvas
   // (sem exigir um clique antes) resolve isso.
@@ -182,23 +182,33 @@
     panPointerStart = { x: evt.clientX, y: evt.clientY };
     panOffsetStart = { x: panX, y: panY };
     dom.canvasWrap.classList.add('panning-active');
+    try {
+      dom.maskCanvas.setPointerCapture(evt.pointerId);
+    } catch (err) {
+      // sem suporte a capture - segue sem, o pan so fica um pouco menos robusto
+    }
     return true;
   }
 
-  // ouvidas na JANELA (nao so no maskCanvas) - um arraste de pan pode
-  // sair da area do canvas quando a imagem esta com zoom alto, e
-  // precisa continuar respondendo mesmo assim
-  window.addEventListener('mousemove', (e) => {
-    if (!isPanning) return;
-    panX = panOffsetStart.x + (e.clientX - panPointerStart.x);
-    panY = panOffsetStart.y + (e.clientY - panPointerStart.y);
+  function movePan(evt) {
+    panX = panOffsetStart.x + (evt.clientX - panPointerStart.x);
+    panY = panOffsetStart.y + (evt.clientY - panPointerStart.y);
     applyPanTransform();
-  });
-  window.addEventListener('mouseup', () => {
-    if (!isPanning) return;
+  }
+
+  function releasePointerCaptureSafe(evt) {
+    try {
+      dom.maskCanvas.releasePointerCapture(evt.pointerId);
+    } catch (err) {
+      // ja liberado/nao capturado - sem problema nenhum ignorar
+    }
+  }
+
+  function stopPan(evt) {
     isPanning = false;
     dom.canvasWrap.classList.remove('panning-active');
-  });
+    releasePointerCaptureSafe(evt);
+  }
 
   // pilha de desfazer POR PAGINA (pageKey -> array de dataURLs "antes de
   // cada traco") - antes era uma unica pilha global, que ia pro lixo
@@ -351,6 +361,20 @@
     if (startPan(evt)) return;
     if (isProcessing || !currentPageKey()) return;
     evt.preventDefault();
+
+    // trava a captura DESSE ponteiro neste canvas pelo resto do gesto -
+    // mesmo fix do Painter (ver docs/notas la): sem isso, uma
+    // caneta/mesa digitalizadora real perde pointermove no meio do
+    // traco assim que o SO troca qual elemento "esta por baixo", e um
+    // traco continuo vira varios pedacos curtos (cada perda reiniciava
+    // um traco novo, fragmentando a mascara enviada pro inpainting).
+    try {
+      dom.maskCanvas.setPointerCapture(evt.pointerId);
+    } catch (err) {
+      // navegador/dispositivo sem suporte - segue sem capture, degrada
+      // graciosamente pro comportamento de antes
+    }
+
     isDrawing = true;
     hasStroke = false;
     lastPoint = null;
@@ -358,24 +382,44 @@
   }
 
   function moveDrawing(evt) {
+    if (isPanning) {
+      movePan(evt);
+      return;
+    }
     if (!isDrawing) return;
     evt.preventDefault();
+    // NAO usar "evt.buttons === 0" aqui pra detectar "soltou" - varios
+    // drivers de mesa digitalizadora reportam buttons=0 (ou piscando
+    // entre 0 e 1) mesmo com a caneta pressionada de verdade o tempo
+    // todo. setPointerCapture (ver startDrawing) ja garante
+    // pointerup/pointercancel confiaveis no fim do gesto, entao nao
+    // precisa adivinhar por "buttons" no meio dele.
     hasStroke = true;
     strokeTo(getPos(evt));
   }
 
-  async function stopDrawing() {
+  async function stopDrawing(evt) {
+    if (isPanning) {
+      stopPan(evt);
+      return;
+    }
     if (!isDrawing) return;
     isDrawing = false;
     lastPoint = null;
+    releasePointerCaptureSafe(evt);
     if (hasStroke) await processStroke();
     else clearStroke();
     hasStroke = false;
   }
 
-  dom.maskCanvas.addEventListener('mousedown', startDrawing);
-  dom.maskCanvas.addEventListener('mousemove', moveDrawing);
-  window.addEventListener('mouseup', stopDrawing);
+  dom.maskCanvas.addEventListener('pointerdown', startDrawing);
+  dom.maskCanvas.addEventListener('pointermove', moveDrawing);
+  window.addEventListener('pointerup', stopDrawing);
+  // pointercancel: o SO interrompeu esse ponteiro no meio do gesto
+  // (gesto do sistema, troca de janela, palm rejection) - evento
+  // legitimo e raro, tratado igual um "soltou" pra nao deixar
+  // isDrawing/isPanning presos.
+  window.addEventListener('pointercancel', stopDrawing);
 
   // reajusta o fit se a janela do app (e portanto o painel) mudar de
   // tamanho enquanto uma pagina ja esta carregada - nao decide o

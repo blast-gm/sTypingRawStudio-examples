@@ -90,7 +90,15 @@ input[type="range"] { accent-color: #ff5a3c; }
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
 
-#maskCanvas { cursor: crosshair; }
+#maskCanvas {
+  cursor: crosshair;
+  /* sem isso, o navegador intercepta o gesto da caneta/dedo pra
+     tentar rolar/dar zoom nativo assim que ela sai fora do padrao de
+     "mouse comum" - em mesa digitalizadora real isso cortava o traco
+     no meio ou perdia pointermove (ver app.js: setPointerCapture nos
+     handlers). */
+  touch-action: none;
+}
 
 #emptyState {
   font-size: 16px;
