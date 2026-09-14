@@ -152,6 +152,26 @@
   });
 
   window.addEventListener('keydown', (e) => {
+    // um <select> focado (cliente clicou nele antes, ou o app deu foco
+    // por outro motivo, SEM chegar a mudar de opcao - o listener de
+    // "change" la em cima so cobre o caso de ter mudado de verdade)
+    // trata espaco como um comando NATIVO dele (abrir o dropdown) -
+    // isso acontece DENTRO do proprio elemento, ANTES desse handler
+    // rodar de verdade, entao o isTypingTarget() logo abaixo (que
+    // ignora espaco com SELECT focado, de proposito, pra nao atrapalhar
+    // INPUT/TEXTAREA de verdade) deixaria o navegador abrir o dropdown
+    // livremente. A UNICA janela que temos pra evitar isso e agir
+    // ANTES do dropdown abrir: tirar o foco do select AQUI, na PRIMEIRA
+    // tecla - uma vez aberto, as teclas seguintes viram parte de um
+    // popup do proprio SO, invisivel pra qualquer JS (nenhum
+    // preventDefault resolve DEPOIS de aberto). Bug relatado: o botao
+    // da mesa digitalizadora mapeado pra "segurar espaco" (pan) abria
+    // o menu de "Limpeza" sozinho sempre que ele estava com foco.
+    if (e.code === 'Space' && document.activeElement && document.activeElement.tagName === 'SELECT') {
+      document.activeElement.blur();
+      e.preventDefault();
+    }
+
     if (isTypingTarget(document.activeElement)) return;
     if (e.code === 'Space' && !spaceDown) {
       spaceDown = true;
