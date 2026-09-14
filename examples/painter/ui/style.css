@@ -10,6 +10,18 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* sem isso, segurar a caneta da mesa digitalizadora parada em cima de
+     QUALQUER texto da UI (botao, label, etc) - coisa que acontece o
+     tempo todo ao posicionar antes de desenhar - o Chromium interpreta
+     como um "long press" de toque e abre o popup nativo de selecao de
+     texto (alcas azuis + "Copiar"/"..."), que fica por cima dos
+     botoes e intercepta os cliques seguintes (explica trocar de
+     ferramenta/opcao sozinho "do nada"). touch-action:none no canvas
+     (ver abaixo) nao resolve isso - e uma propriedade diferente, essa
+     aqui e sobre SELECAO DE TEXTO, nao sobre pan/zoom nativo. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .mono { font-family: "Consolas", "SF Mono", monospace; }
