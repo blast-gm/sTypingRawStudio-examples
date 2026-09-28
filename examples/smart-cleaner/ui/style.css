@@ -79,6 +79,14 @@ button:disabled { opacity: 0.4; cursor: default; }
 button.primary { background: #ff5a3c; border-color: #ff5a3c; color: #1a0d08; font-weight: 600; }
 button.primary:hover:not(:disabled) { background: #ff7a5c; }
 
+/* botao discreto de "modo mover" (icone de mao) - fica junto do
+   controle de pincel de proposito, pra ficar perto do que ele
+   substitui enquanto ligado. .active marca visualmente que esta LIGADO
+   (limpeza desabilitada, arrasta com 1 dedo pra mover a pagina). */
+button.icon-toggle { padding: 6px 9px; font-size: 13px; line-height: 1; }
+button.icon-toggle.active { background: #3d6bd8; border-color: #3d6bd8; color: #fff; }
+button.icon-toggle.active:hover { background: #4d7ce8; }
+
 input[type="range"] { accent-color: #ff5a3c; }
 
 #canvasWrap {

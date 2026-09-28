@@ -44,6 +44,7 @@
     nextPageBtn: el('nextPageBtn'),
     undoBtn: el('undoBtn'),
     confirmBtn: el('confirmBtn'),
+    panModeBtn: el('panModeBtn'),
     canvasWrap: el('canvasWrap'),
     emptyState: el('emptyState'),
     imageCanvas: el('imageCanvas'),
@@ -105,6 +106,13 @@
   let isPanning = false;
   let panPointerStart = null;
   let panOffsetStart = null;
+  // "modo mover" manual (botao ✋ na toolbar) - equivalente a segurar
+  // espaco, so que via TOGGLE em vez de tecla segurada (celular nao tem
+  // teclado, e o gesto de pinca com 2 dedos as vezes falha/nao
+  // registra os 2 toques a tempo). Ligado, QUALQUER arraste de 1
+  // ponteiro (dedo/mouse/caneta) move a pagina em vez de limpar - ver
+  // startPan() abaixo.
+  let manualPanMode = false;
 
   // ------------------------------------------------------------
   // zoom/pan com DOIS DEDOS (celular/tablet Android) - "segurar espaco"
@@ -242,12 +250,32 @@
   window.addEventListener('keyup', (e) => {
     if (e.code === 'Space') {
       spaceDown = false;
-      dom.canvasWrap.classList.remove('panning-ready', 'panning-active');
+      // NAO tira a classe se o "modo mover" manual (botao ✋) estiver
+      // ligado - ela precisa continuar mostrando o cursor de mao
+      // aberta enquanto esse modo estiver ativo, mesmo sem espaco
+      // pressionado (o toggle nao depende de teclado nenhum).
+      if (!manualPanMode) dom.canvasWrap.classList.remove('panning-ready', 'panning-active');
     }
   });
 
+  // botao "✋" - liga/desliga o modo mover manualmente (equivalente a
+  // segurar espaco, mas por toggle). Pensado pro celular: nao ha
+  // espaco fisico pra segurar, e o gesto de pinca com 2 dedos as vezes
+  // nao registra os 2 toques a tempo (relatado como "as vezes nao
+  // funciona"). Ligado, arrastar com 1 dedo/mouse/caneta so move a
+  // pagina - nenhum traco de limpeza e iniciado (ver startPan/
+  // startDrawing). Continua funcionando junto do zoom de pinca (2
+  // dedos), que nao depende desse estado.
+  dom.panModeBtn.addEventListener('click', () => {
+    manualPanMode = !manualPanMode;
+    dom.panModeBtn.classList.toggle('active', manualPanMode);
+    dom.panModeBtn.setAttribute('aria-pressed', String(manualPanMode));
+    dom.canvasWrap.classList.toggle('panning-ready', manualPanMode || spaceDown);
+    if (!manualPanMode && !spaceDown) dom.canvasWrap.classList.remove('panning-active');
+  });
+
   function startPan(evt) {
-    if (!spaceDown) return false;
+    if (!spaceDown && !manualPanMode) return false;
     isPanning = true;
     panPointerStart = { x: evt.clientX, y: evt.clientY };
     panOffsetStart = { x: panX, y: panY };
