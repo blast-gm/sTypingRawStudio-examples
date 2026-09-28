@@ -1,0 +1,163 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #1a1a1e;
+  color: #eae7e1;
+  font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* sem isso, segurar a caneta da mesa digitalizadora parada em cima de
+     QUALQUER texto da UI (botao, label, etc) - coisa que acontece o
+     tempo todo ao posicionar antes de desenhar - o Chromium interpreta
+     como um "long press" de toque e abre o popup nativo de selecao de
+     texto (alcas azuis + "Copiar"/"..."), que fica por cima dos
+     botoes e intercepta os cliques seguintes. touch-action:none no
+     canvas (ver abaixo) nao resolve isso - e uma propriedade diferente,
+     essa aqui e sobre SELECAO DE TEXTO, nao sobre pan/zoom nativo. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.mono { font-family: "Consolas", "SF Mono", monospace; }
+
+details#settingsBox {
+  flex: none;
+  border-bottom: 1px solid #29292f;
+  background: #16161a;
+}
+details#settingsBox summary { padding: 8px 14px; cursor: pointer; font-size: 12px; color: #cfcfe0; }
+.settingsBody { padding: 2px 14px 14px; }
+.settingsBody .hint { font-size: 11px; color: #77778a; margin: 8px 0 0; line-height: 1.5; max-width: 500px; }
+.settingsBody label { display: block; font-size: 12px; color: #9a9aa8; margin: 12px 0 6px; }
+.settingsBody select,
+.settingsBody input {
+  width: 100%; max-width: 420px; box-sizing: border-box;
+  background: #111116; border: 1px solid #2a2a34; color: #eceef2;
+  border-radius: 4px; padding: 7px 9px; font-size: 12px; font-family: inherit;
+}
+.settingsBody .actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.settingsBody .status { font-size: 12px; color: #3ddc84; }
+.settingsBody .status.error { color: #ff5a5a; }
+
+#toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  /* "space-between" com varios grupos de largura variavel em UMA linha
+     so funciona numa tela larga o bastante pra caber todos sem
+     apertar - numa tela de celular eles ficavam espremidos/cortados
+     uns por cima dos outros. flex-wrap deixa cada grupo quebrar pra
+     proxima linha livremente quando nao cabe. */
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 10px 14px;
+  background: #16161a;
+  border-bottom: 1px solid #29292f;
+}
+
+.toolbar-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+button {
+  background: #1e1e23;
+  border: 1px solid #29292f;
+  color: #eae7e1;
+  border-radius: 5px;
+  padding: 7px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { background: #26262d; }
+button:disabled { opacity: 0.4; cursor: default; }
+button.primary { background: #ff5a3c; border-color: #ff5a3c; color: #1a0d08; font-weight: 600; }
+button.primary:hover:not(:disabled) { background: #ff7a5c; }
+
+/* botao discreto de "modo mover" (icone de mao) - fica junto do
+   controle de pincel de proposito, pra ficar perto do que ele
+   substitui enquanto ligado. .active marca visualmente que esta LIGADO
+   (limpeza desabilitada, arrasta com 1 dedo pra mover a pagina). */
+button.icon-toggle { padding: 6px 9px; font-size: 13px; line-height: 1; }
+button.icon-toggle.active { background: #3d6bd8; border-color: #3d6bd8; color: #fff; }
+button.icon-toggle.active:hover { background: #4d7ce8; }
+
+input[type="range"] { accent-color: #ff5a3c; }
+
+#canvasWrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* NAO usar overflow:auto aqui - combinado com align/justify-content:
+     center, o navegador tem um bug conhecido onde metade do conteudo
+     que estoura o container vira inacessivel pela rolagem. O zoom
+     (Ctrl +/-, Ctrl+scroll) e a navegacao (segurar espaco e arrastar)
+     controlam a posicao a mao via --pan-x/--pan-y, entao nao precisa
+     de rolagem nativa nenhuma. */
+  overflow: hidden;
+  min-height: 0;
+  --pan-x: 0px;
+  --pan-y: 0px;
+}
+
+#canvasWrap.panning-ready #maskCanvas { cursor: grab; }
+#canvasWrap.panning-active #maskCanvas { cursor: grabbing; }
+
+#imageCanvas, #maskCanvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(calc(-50% + var(--pan-x)), calc(-50% + var(--pan-y)));
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+#maskCanvas {
+  cursor: crosshair;
+  /* sem isso, o navegador intercepta o gesto da caneta/dedo pra
+     tentar rolar/dar zoom nativo assim que ela sai fora do padrao de
+     "mouse comum" - em mesa digitalizadora real isso cortava o traco
+     no meio ou perdia pointermove (ver app.js: setPointerCapture nos
+     handlers). */
+  touch-action: none;
+}
+
+#emptyState {
+  font-size: 16px;
+  color: #8a8a92;
+  text-align: center;
+}
+
+#statusOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10,10,12,0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* o "display:flex" acima (regra por ID) tem mais especificidade que a
+   regra padrao do navegador pra [hidden] (display:none) - sem isso, o
+   atributo "hidden" definido via JS NUNCA escondia o overlay de
+   verdade, mesmo com o carregamento ja concluido por baixo (o
+   elemento ficava com display:flex sempre, so o texto/estado interno
+   mudava). */
+#statusOverlay[hidden] { display: none; }
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255,255,255,0.2);
+  border-top-color: #ff5a3c;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }

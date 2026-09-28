@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Smart Cleaner Mobile</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <details id="settingsBox">
+    <summary>⚙ Sobre</summary>
+    <div class="settingsBody">
+      <p class="hint">
+        Reconstrução via <strong>MI-GAN</strong> - um modelo de IA bem mais
+        leve e rápido que o LaMa usado no Smart Cleaner normal, feito sob
+        medida pra rodar direto na CPU do celular (sem GPU). É um modelo
+        genérico (não foi treinado especificamente em traço de mangá) -
+        em áreas com textura/trama real por baixo, o resultado pode ficar
+        mais "borrado" que o esperado; em fundos lisos (balão de fala
+        vazio, por exemplo) costuma reconstruir bem.
+      </p>
+
+      <label for="processingMode">Processamento</label>
+      <select id="processingMode">
+        <option value="local">Local (neste celular)</option>
+        <option value="cloud">Nuvem (recomendado em celulares fracos)</option>
+      </select>
+      <p class="hint">
+        "Nuvem" manda só o recorte da área pintada (nunca a página
+        inteira) pra um servidor rodar o MI-GAN e devolve o resultado -
+        a sessão se autodestrói assim que a extensão recebe a resposta,
+        nada fica salvo no servidor. Sem cadastro nem chave - só
+        precisa de internet.
+      </p>
+
+      <div class="actions">
+        <button id="btnSaveSettings">Salvar configurações</button>
+        <span id="settingsStatus" class="status"></span>
+      </div>
+    </div>
+  </details>
+
+  <div id="toolbar">
+    <div class="toolbar-group">
+      <label>Pincel</label>
+      <input id="brushSize" type="range" min="8" max="120" value="36" />
+      <span id="brushSizeLabel" class="mono">36px</span>
+      <button id="panModeBtn" class="icon-toggle" title="Modo mover - desliga a limpeza e deixa arrastar com 1 dedo (igual segurar espaço no PC). Útil no celular, onde mover com 2 dedos às vezes falha.">✋</button>
+    </div>
+    <div class="toolbar-group">
+      <button id="prevPageBtn" title="Página anterior" disabled>← Anterior</button>
+      <span id="pageLabel" class="mono">-</span>
+      <button id="nextPageBtn" title="Próxima página" disabled>Próxima →</button>
+    </div>
+    <div class="toolbar-group">
+      <button id="undoBtn" disabled>↶ Desfazer (Ctrl+Z)</button>
+      <button id="confirmBtn" class="primary" disabled>Confirmar página →</button>
+    </div>
+  </div>
+
+  <div id="canvasWrap">
+    <div id="emptyState" hidden>Nenhuma página com imagem ("raw" ou já limpa) neste projeto.</div>
+    <canvas id="imageCanvas"></canvas>
+    <canvas id="maskCanvas"></canvas>
+    <div id="statusOverlay" hidden>
+      <div class="spinner"></div>
+      <span id="statusText">Processando...</span>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

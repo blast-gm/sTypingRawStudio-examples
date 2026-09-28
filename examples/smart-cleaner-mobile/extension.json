@@ -1,0 +1,12 @@
+{
+  "id": "smart-cleaner-mobile",
+  "name": "Smart Cleaner Mobile",
+  "version": "1.1.0",
+  "description": "Limpa páginas (remove texto/marcas da imagem original) usando inpainting com IA (MI-GAN) - local (CPU do celular) ou na nuvem (sessão autodestrutiva, pra celulares mais fracos). Pinte com o dedo/caneta e a área é reconstruída automaticamente ao soltar.",
+  "author": "sTraw Studio",
+  "apiVersion": "1.0",
+  "entry": "index.js",
+  "icon": "eraser",
+  "permissions": ["project:read", "project:write", "image:processing", "settings", "network"],
+  "minAppVersion": "1.0.0"
+}
