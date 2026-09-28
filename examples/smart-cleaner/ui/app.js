@@ -106,6 +106,56 @@
   let panPointerStart = null;
   let panOffsetStart = null;
 
+  // ------------------------------------------------------------
+  // zoom/pan com DOIS DEDOS (celular/tablet Android) - "segurar espaco"
+  // (acima) so existe com teclado de verdade, entao num aparelho so-
+  // touch nao ha NENHUMA forma de dar zoom/navegar sem isso. O
+  // navegador teria um gesto de pinca NATIVO de graca, mas
+  // touch-action:none no canvas (necessario pro traco de caneta nao
+  // fragmentar - ver style.css) desliga TODOS os gestos nativos dele,
+  // pinca inclusa - entao reimplementa aqui, no mesmo espirito do
+  // Ctrl+scroll/Ctrl+- (chama a MESMA setZoom()). activeTouchPointers
+  // rastreia todo dedo em contato com o canvas (pointerType "touch");
+  // pinchState existe so enquanto ha 2+ dedos por baixo.
+  // ------------------------------------------------------------
+  const activeTouchPointers = new Map(); // pointerId -> {x, y} (coords de TELA)
+  let pinchState = null; // { startDist, startZoom, startMid, startPanX, startPanY }
+
+  function touchPointsArray() {
+    return [...activeTouchPointers.values()];
+  }
+
+  function startPinch() {
+    const pts = touchPointsArray();
+    if (pts.length < 2) return;
+    const [a, b] = pts;
+    pinchState = {
+      startDist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+      startZoom: zoomLevel,
+      startMid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      startPanX: panX,
+      startPanY: panY,
+    };
+    dom.canvasWrap.classList.add('panning-active');
+  }
+
+  function updatePinch() {
+    const pts = touchPointsArray();
+    if (pts.length < 2 || !pinchState) return;
+    const [a, b] = pts;
+    const dist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    setZoom(pinchState.startZoom * (dist / pinchState.startDist));
+    panX = pinchState.startPanX + (mid.x - pinchState.startMid.x);
+    panY = pinchState.startPanY + (mid.y - pinchState.startMid.y);
+    applyPanTransform();
+  }
+
+  function stopPinch() {
+    pinchState = null;
+    dom.canvasWrap.classList.remove('panning-active');
+  }
+
   function isTypingTarget(elm) {
     return Boolean(elm) && (elm.tagName === 'INPUT' || elm.tagName === 'TEXTAREA' || elm.tagName === 'SELECT' || elm.isContentEditable);
   }
@@ -378,22 +428,42 @@
   );
 
   function startDrawing(evt) {
-    if (startPan(evt)) return;
-    if (isProcessing || !currentPageKey()) return;
-    evt.preventDefault();
-
-    // trava a captura DESSE ponteiro neste canvas pelo resto do gesto -
-    // mesmo fix do Painter (ver docs/notas la): sem isso, uma
-    // caneta/mesa digitalizadora real perde pointermove no meio do
-    // traco assim que o SO troca qual elemento "esta por baixo", e um
-    // traco continuo vira varios pedacos curtos (cada perda reiniciava
-    // um traco novo, fragmentando a mascara enviada pro inpainting).
+    // trava a captura DESSE ponteiro neste canvas pelo resto do gesto,
+    // pra qualquer tipo de ponteiro (mouse/caneta/dedo) - mesmo fix do
+    // Painter (ver docs/notas la): sem isso, um dedo/caneta real perde
+    // pointermove no meio do gesto assim que o SO troca qual elemento
+    // "esta por baixo".
     try {
       dom.maskCanvas.setPointerCapture(evt.pointerId);
     } catch (err) {
       // navegador/dispositivo sem suporte - segue sem capture, degrada
       // graciosamente pro comportamento de antes
     }
+
+    if (evt.pointerType === 'touch') {
+      activeTouchPointers.set(evt.pointerId, { x: evt.clientX, y: evt.clientY });
+      if (activeTouchPointers.size >= 2) {
+        // um SEGUNDO dedo tocou - cancela qualquer traco de UM dedo em
+        // andamento e assume o gesto de pinca (zoom + pan com dois
+        // dedos). (Re)inicia a base do gesto toda vez que a contagem de
+        // dedos muda (aqui e no stopDrawing) - evita um "pulo" de zoom
+        // se um 3o dedo tocar/soltar no meio do gesto.
+        evt.preventDefault();
+        if (isDrawing) {
+          isDrawing = false;
+          hasStroke = false;
+          lastPoint = null;
+          clearStroke();
+        }
+        isPanning = false;
+        startPinch();
+        return;
+      }
+    }
+
+    if (startPan(evt)) return;
+    if (isProcessing || !currentPageKey()) return;
+    evt.preventDefault();
 
     isDrawing = true;
     hasStroke = false;
@@ -402,6 +472,15 @@
   }
 
   function moveDrawing(evt) {
+    if (evt.pointerType === 'touch' && activeTouchPointers.has(evt.pointerId)) {
+      activeTouchPointers.set(evt.pointerId, { x: evt.clientX, y: evt.clientY });
+      if (pinchState) {
+        evt.preventDefault();
+        updatePinch();
+        return;
+      }
+    }
+
     if (isPanning) {
       movePan(evt);
       return;
@@ -419,6 +498,17 @@
   }
 
   async function stopDrawing(evt) {
+    if (evt.pointerType === 'touch' && activeTouchPointers.has(evt.pointerId)) {
+      activeTouchPointers.delete(evt.pointerId);
+      if (pinchState) {
+        // ainda sobram 2+ dedos (um 3o soltou primeiro) - recalibra com
+        // os que restaram em vez de encerrar o gesto de pinca
+        if (activeTouchPointers.size >= 2) startPinch();
+        else stopPinch();
+        return;
+      }
+    }
+
     if (isPanning) {
       stopPan(evt);
       return;

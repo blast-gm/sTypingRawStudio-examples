@@ -44,14 +44,22 @@ details#settingsBox summary { padding: 8px 14px; cursor: pointer; font-size: 12p
   flex: none;
   display: flex;
   align-items: center;
+  /* "space-between" com 4 grupos de largura variavel em UMA linha
+     so funciona numa tela larga o bastante pra caber todos sem
+     apertar - numa tela de celular eles ficavam espremidos/cortados
+     uns por cima dos outros (bug reportado com o botao "Confirmar
+     pagina" vazando por cima do menu "Limpeza"). flex-wrap deixa
+     cada grupo quebrar pra proxima linha livremente quando nao cabe,
+     igual o Painter ja fazia. */
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 16px;
+  gap: 10px 16px;
   padding: 10px 14px;
   background: #16161a;
   border-bottom: 1px solid #29292f;
 }
 
-.toolbar-group { display: flex; align-items: center; gap: 8px; }
+.toolbar-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 #toolbar select {
   background: #1e1e23; border: 1px solid #29292f; color: #eae7e1;
   border-radius: 5px; padding: 6px 8px; font-size: 12px;

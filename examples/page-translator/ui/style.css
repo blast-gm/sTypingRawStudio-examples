@@ -59,10 +59,10 @@ textarea { min-height: 260px; resize: vertical; line-height: 1.5; }
    acompanha a proporcao de cada pagina livremente (por isso paginas MUITO
    altas, tipo webtoon/mangá coreano, so pedem rolagem vertical no painel -
    overflow-x:hidden no html/body acima impede so a rolagem HORIZONTAL). */
-#pagePreviewWrap { margin-top: 18px; }
+#pagePreviewWrap { margin-top: 18px; text-align: center; }
 #pagePreviewWrap img {
-  display: block;
-  width: 100%;
+  display: inline-block;
+  width: 80%;
   height: auto;
   border: 1px solid #2a2a34;
   border-radius: 6px;
@@ -82,3 +82,26 @@ button.ghost:hover { background: #22222b; }
 
 .status { font-size: 12px; color: #3ddc84; min-height: 16px; margin: 8px 0 0; }
 .status.error { color: #ff5a5a; }
+
+/* ==========================================================
+   RESPONSIVO (celular/tablet, retrato ou paisagem) - o painel roda
+   num iframe cujo tamanho e o tamanho REAL da janela do app (sem
+   viewport meta isso rodava com um viewport "desktop" fixo e
+   encolhia tudo pra caber, motivo do texto/imagem saindo minusculos
+   antes - ver viewport meta no index.html). Abaixo de 700px de
+   largura as duas colunas (rascunho/roteiro) nao cabem lado a lado
+   de jeito nenhum sem virar ilegivel - empilha uma embaixo da outra,
+   igual qualquer app mobile faria. */
+@media (max-width: 700px) {
+  #root { padding: 12px; }
+
+  .pageHeader { flex-wrap: wrap; justify-content: center; row-gap: 8px; }
+  .pageHeader #btnReload { position: static; transform: none; order: 3; width: 100%; }
+
+  .columns { flex-direction: column; gap: 18px; }
+  textarea { min-height: 180px; }
+  .script-chips { min-height: 140px; max-height: 320px; }
+
+  .actions.main { flex-direction: column; align-items: stretch; }
+  .actions.main button { width: 100%; }
+}
