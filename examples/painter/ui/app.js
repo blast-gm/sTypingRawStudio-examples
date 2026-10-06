@@ -639,7 +639,6 @@
   dom.canvasWrap.addEventListener(
     'wheel',
     (e) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
       e.preventDefault();
       const factor = e.deltaY < 0 ? ZOOM_WHEEL_STEP : 1 / ZOOM_WHEEL_STEP;
       setZoom(zoomLevel * factor);
@@ -647,8 +646,14 @@
     { passive: false }
   );
 
+  // botao do meio (roda do mouse pressionada) - bloqueia o autoscroll
+  // nativo do navegador/Windows pra ele nao brigar com o arraste
+  dom.canvasWrap.addEventListener('mousedown', (e) => {
+    if (e.button === 1) e.preventDefault();
+  });
+
   function startPan(evt) {
-    if (!spaceDown) return false;
+    if (!spaceDown && evt.button !== 1) return false;
     isPanning = true;
     panPointerStart = { x: evt.clientX, y: evt.clientY };
     panOffsetStart = { x: panX, y: panY };
