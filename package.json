@@ -7,7 +7,8 @@
     "build": "node scripts/build-package.js",
     "build:hello-extension": "node scripts/build-package.js examples/hello-extension",
     "build:smart-cleaner": "node scripts/build-package.js examples/smart-cleaner",
-    "build:page-translator": "node scripts/build-package.js examples/page-translator"
+    "build:page-translator": "node scripts/build-package.js examples/page-translator",
+    "build:page-translator-mobile": "node scripts/build-package.js examples/page-translator-mobile"
   },
   "dependencies": {
     "adm-zip": "^0.6.0"

@@ -1,0 +1,80 @@
+html, body { margin: 0; overflow-x: hidden; }
+body { background: #1a1a1f; color: #eceef2; font-family: -apple-system, "Segoe UI", Arial, sans-serif; }
+#root { padding: 18px; box-sizing: border-box; }
+
+details#settingsBox { border: 1px solid #2a2a34; border-radius: 6px; margin-bottom: 16px; }
+details#settingsBox summary { padding: 10px 12px; cursor: pointer; font-size: 13px; color: #cfcfe0; }
+.settingsBody { padding: 4px 12px 14px; }
+
+label { display: block; font-size: 12px; color: #9a9aa8; margin: 10px 0 6px; }
+input, textarea, select { width: 100%; box-sizing: border-box; background: #111116; border: 1px solid #2a2a34; color: #eceef2; border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; }
+textarea { min-height: 260px; resize: vertical; line-height: 1.5; }
+.hint { font-size: 11px; color: #77778a; margin: 6px 0 0; line-height: 1.5; }
+
+.checkboxRow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cfcfe0; }
+.checkboxRow input[type="checkbox"] { width: auto; margin: 0; }
+
+/* navegacao (Anterior/Próxima) centralizada; Recarregar sai do fluxo
+   (position:absolute) pra nao disputar espaco nem empurrar a nav */
+.pageHeader { position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; gap: 10px; }
+.pageNav { display: flex; align-items: center; gap: 10px; }
+.pageHeader #btnReload { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+#pageLabel { font-size: 13px; color: #cfcfe0; font-weight: 600; min-width: 90px; text-align: center; }
+
+.columns { display: flex; gap: 14px; }
+.col { flex: 1; min-width: 0; }
+
+.script-chips { min-height: 260px; max-height: 420px; overflow-y: auto; background: #111116; border: 1px solid #2a2a34; border-radius: 6px; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; }
+.script-empty { color: #55545c; font-size: 11.5px; padding: 10px; line-height: 1.6; }
+.script-row { display: flex; gap: 5px; }
+.script-chip {
+  min-height: 0; width: auto;
+  flex: 1; min-width: 0; box-sizing: border-box;
+  background: #1e1e23; border: 1px solid #29292f; border-radius: 4px;
+  color: #eae7e1; font-size: 12px; line-height: 1.45; text-align: center;
+  padding: 7px 8px; font-family: inherit; resize: none; overflow: hidden;
+}
+.script-chip:focus { outline: none; border-color: #ff5a3c; background: #232329; }
+
+.actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.actions.main { margin-top: 16px; justify-content: center; }
+
+#pagePreviewWrap { margin-top: 18px; text-align: center; }
+#pagePreviewWrap img {
+  display: inline-block;
+  width: 80%;
+  height: auto;
+  border: 1px solid #2a2a34;
+  border-radius: 6px;
+  background: #111116;
+}
+#pagePreviewWrap[hidden] { display: none; }
+
+button { background: #ff5a3c; border: none; color: #1a0d08; font-weight: 600; border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+button:hover { background: #ff7a5c; }
+button:disabled { background: #4a4a55; color: #8a8a95; cursor: not-allowed; }
+button.secondary { background: #2a2a34; color: #eceef2; }
+button.secondary:hover { background: #35353f; }
+button.confirm { background: #3ddc84; color: #062412; }
+button.confirm:hover { background: #5ce89a; }
+button.ghost { background: transparent; border: 1px solid #2a2a34; color: #9a9aa8; padding: 5px 10px; font-weight: 500; }
+button.ghost:hover { background: #22222b; }
+
+.status { font-size: 12px; color: #3ddc84; min-height: 16px; margin: 8px 0 0; }
+.status.error { color: #ff5a5a; }
+
+/* responsivo (celular/tablet) - abaixo de 700px as duas colunas nao
+   cabem lado a lado legivelmente, empilha uma embaixo da outra */
+@media (max-width: 700px) {
+  #root { padding: 12px; }
+
+  .pageHeader { flex-wrap: wrap; justify-content: center; row-gap: 8px; }
+  .pageHeader #btnReload { position: static; transform: none; order: 3; width: 100%; }
+
+  .columns { flex-direction: column; gap: 18px; }
+  textarea { min-height: 180px; }
+  .script-chips { min-height: 140px; max-height: 320px; }
+
+  .actions.main { flex-direction: column; align-items: stretch; }
+  .actions.main button { width: 100%; }
+}
