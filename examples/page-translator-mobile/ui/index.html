@@ -28,11 +28,18 @@
           Só é usado quando a página ainda não tem NENHUM roteiro (projeto
           só com imagem "raw") - nesse caso não há texto nenhum pra
           traduzir localmente. Manda a imagem pra um servidor próprio
-          (sem Gemini, sem IA de terceiros, sessão autodestrutiva) que só
-          detecta e lê o texto da imagem; a tradução continua sendo feita
-          localmente, pelo mesmo tradutor gratuito de sempre. Desligado por
-          padrão - precisa de internet quando ativado.
+          (sem Gemini, sem IA de terceiros, sessão autodestrutiva - mesma
+          nuvem usada pelo Smart Cleaner Mobile) que só detecta e lê o
+          texto da imagem; a tradução continua sendo feita localmente,
+          pelo mesmo tradutor gratuito de sempre. Desligado por padrão -
+          precisa de internet quando ativado.
         </p>
+
+        <label for="readingDirection">Ordem de leitura dos balões (só afeta o modo nuvem)</label>
+        <select id="readingDirection">
+          <option value="ltr">Ocidental - esquerda → direita (comics)</option>
+          <option value="rtl">Mangá - direita → esquerda</option>
+        </select>
 
         <div class="actions">
           <button id="btnSaveSettings">Salvar configurações</button>

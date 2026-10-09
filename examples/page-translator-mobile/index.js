@@ -20,27 +20,31 @@
  * "raw", nada digitado ainda) - sem roteiro não tem o que traduzir, e
  * sem visão computacional não dá pra "ler" o texto direto da imagem.
  * Em vez de depender do Gemini (que exigiria cada pessoa configurar a
- * própria chave), esse modo manda a imagem pra um servidor PRÓPRIO
- * (ver packages/translate-ai-cloud no repo principal) que faz
- * detecção de balão + OCR com modelos abertos, auto-hospedados - sem
- * IA generativa de terceiros, sem chave, sessão autodestrutiva (mesmo
- * espírito do Smart Cleaner Mobile, ver examples/smart-cleaner-mobile).
- * A TRADUÇÃO do texto reconhecido continua sendo feita localmente via
- * studio.translate.free, nunca pelo servidor - ele só devolve o texto
- * ORIGINAL lido da imagem.
+ * própria chave), esse modo usa a MESMA API na nuvem já usada pelo
+ * Smart Cleaner Mobile (straw-studio-ai-cloud, ver
+ * examples/smart-cleaner-mobile) - sessão autodestrutiva, sem chave,
+ * rate limit por IP do lado do servidor em vez de credencial. A
+ * operação usada aqui é "detect-text" (detecção de balão + OCR com
+ * modelos abertos, auto-hospedados - nunca Gemini/IA generativa de
+ * terceiros) - DIFERENTE do fluxo genérico (model/feeds/outputNames)
+ * que o Smart Cleaner Mobile usa pra rodar o MI-GAN; o mesmo servidor
+ * atende os dois. A TRADUÇÃO do texto reconhecido continua sendo
+ * feita localmente via studio.translate.free, nunca pelo servidor -
+ * ele só devolve o texto ORIGINAL lido da imagem.
  */
 module.exports = function (studio) {
-  // servidor de OCR na nuvem (detecção de balão + leitura de texto,
-  // modelos abertos auto-hospedados - nunca Gemini) - sem chave de
-  // API de proposito, igual o Smart Cleaner Mobile: o freio contra
-  // abuso é rate limit por IP do lado do servidor, não uma credencial
-  // aqui (ver packages/translate-ai-cloud/README.md no repo principal).
-  const CLOUD_URL = 'https://ocr.blast.net.br';
+  // mesma API na nuvem do Smart Cleaner Mobile (straw-studio-ai-cloud)
+  // - sem chave de API de proposito: o freio contra abuso é rate
+  // limit por IP do lado do servidor, não uma credencial aqui.
+  const CLOUD_URL = 'https://ai.blast.net.br';
 
   function getSettings() {
     return {
       targetLang: studio.settings.get('targetLang') || 'en',
       cloudOcr: studio.settings.get('cloudOcr') === true,
+      // so usado pelo modo nuvem (op "detect-text") - define em que
+      // ordem os baloes detectados viram linhas do rascunho
+      readingDirection: studio.settings.get('readingDirection') === 'rtl' ? 'rtl' : 'ltr',
     };
   }
 
@@ -86,15 +90,16 @@ module.exports = function (studio) {
     return cloudFetch('/sessions', { method: 'POST' });
   }
 
-  async function cloudProcess(sessionId, imageBase64) {
-    // so pede DETECCAO + OCR (texto ORIGINAL lido da imagem) - nunca
-    // tradução nenhuma: o servidor nao recebe (nem precisa de)
-    // targetLang nenhum. A traducao do texto devolvido continua
-    // acontecendo aqui, localmente, via studio.translate.free (ver
-    // 'translate-lines' abaixo) - mesmo caminho sem IA de sempre.
+  async function cloudProcess(sessionId, imageBase64, readingDirection) {
+    // op "detect-text" do straw-studio-ai-cloud - so pede DETECCAO +
+    // OCR (texto ORIGINAL lido da imagem), nunca tradução nenhuma: o
+    // servidor nao recebe (nem precisa de) targetLang nenhum. A
+    // traducao do texto devolvido continua acontecendo aqui,
+    // localmente, via studio.translate.free (ver 'translate-lines'
+    // abaixo) - mesmo caminho sem IA de sempre.
     return cloudFetch(`/sessions/${sessionId}/process`, {
       method: 'POST',
-      body: JSON.stringify({ image: imageBase64 }),
+      body: JSON.stringify({ op: 'detect-text', image: imageBase64, readingDirection }),
     });
   }
 
@@ -156,6 +161,7 @@ module.exports = function (studio) {
             case 'save-settings': {
               studio.settings.set('targetLang', (msg.targetLang || 'en').trim());
               studio.settings.set('cloudOcr', Boolean(msg.cloudOcr));
+              studio.settings.set('readingDirection', msg.readingDirection === 'rtl' ? 'rtl' : 'ltr');
               return { ok: true };
             }
 
@@ -194,7 +200,7 @@ module.exports = function (studio) {
               return cloudCreateSession();
 
             case 'cloud-process':
-              return cloudProcess(msg.sessionId, msg.imageBase64);
+              return cloudProcess(msg.sessionId, msg.imageBase64, getSettings().readingDirection);
 
             case 'cloud-poll':
               return cloudPoll(msg.sessionId);

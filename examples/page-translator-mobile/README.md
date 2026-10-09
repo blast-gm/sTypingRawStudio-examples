@@ -24,21 +24,26 @@ que traduzir por esse caminho.
 
 Só existe pra cobrir esse caso ("página só com `raw`, nada digitado
 ainda"). Em vez de pedir pra cada pessoa configurar a própria chave
-Gemini (o que o pedido original queria evitar), esse modo manda a
-imagem pra um servidor **próprio**
-([`packages/translate-ai-cloud`](https://github.com/blast-gm/sTypingRawStudio))
-que só detecta balão/texto e lê o conteúdo (OCR) com modelos **abertos,
-auto-hospedados** - nenhuma IA generativa de terceiros, nenhuma chave,
-sessão autodestrutiva (mesma arquitetura do
-[Smart Cleaner Mobile](../smart-cleaner-mobile), adaptada de
-"reconstrução de imagem" para "detectar + ler texto"). A **tradução**
-do texto reconhecido continua acontecendo localmente, pelo mesmo
-`studio.translate.free` de sempre - o servidor nunca traduz nada,
-só devolve o texto original lido da imagem.
+Gemini (o que o pedido original queria evitar), esse modo usa a
+**mesma** API na nuvem já usada pelo
+[Smart Cleaner Mobile](../smart-cleaner-mobile) (`straw-studio-ai-cloud`,
+sessão autodestrutiva, sem chave nenhuma - rate limit por IP do lado do
+servidor em vez de credencial) - só que com uma operação diferente:
+`detect-text` em vez do fluxo genérico (`model`/`feeds`/`outputNames`)
+usado pra rodar o MI-GAN. Essa operação detecta balão/texto (RT-DETRv2,
+mesmo modelo local do Page Translator original) e lê o conteúdo (OCR,
+via Tesseract) - modelos **abertos, auto-hospedados**, nenhuma IA
+generativa de terceiros. A **tradução** do texto reconhecido continua
+acontecendo localmente, pelo mesmo `studio.translate.free` de sempre -
+o servidor nunca traduz nada, só devolve o texto original lido da
+imagem.
 
-Ative em **Configurações → "Detectar texto na nuvem (opcional)"**.
-Precisa de internet só quando usado; o caminho padrão (com roteiro já
-existente) nunca toca rede nenhuma.
+Ative em **Configurações → "Detectar texto na nuvem (opcional)"**. A
+**ordem de leitura dos balões** (ocidental ou mangá) também fica nas
+configurações, mas só importa pra esse modo - sem detecção de imagem
+nenhuma, o caminho padrão não tem balão nenhum pra ordenar. Precisa de
+internet só quando usado; o caminho padrão (com roteiro já existente)
+nunca toca rede nenhuma.
 
 ## Onde fica o resultado (rascunho → roteiro)
 

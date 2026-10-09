@@ -23,6 +23,7 @@
   const dom = {
     targetLang: el('targetLang'),
     cloudOcr: el('cloudOcr'),
+    readingDirection: el('readingDirection'),
     btnSaveSettings: el('btnSaveSettings'),
     settingsStatus: el('settingsStatus'),
     pageLabel: el('pageLabel'),
@@ -45,7 +46,7 @@
   let currentPageKey = null;
   let pageKeys = [];
   let currentState = null;
-  let settings = { targetLang: 'en', cloudOcr: false };
+  let settings = { targetLang: 'en', cloudOcr: false, readingDirection: 'ltr' };
 
   function linesToText(lines) {
     return (lines || []).join('\n');
@@ -127,6 +128,7 @@
     settings = await callStudio({ type: 'get-settings' });
     dom.targetLang.value = settings.targetLang || 'en';
     dom.cloudOcr.checked = Boolean(settings.cloudOcr);
+    dom.readingDirection.value = settings.readingDirection === 'rtl' ? 'rtl' : 'ltr';
   }
 
   async function loadPage(pageKey) {
@@ -159,8 +161,17 @@
     dom.settingsStatus.textContent = '';
     dom.settingsStatus.classList.remove('error');
     try {
-      await callStudio({ type: 'save-settings', targetLang: dom.targetLang.value, cloudOcr: dom.cloudOcr.checked });
-      settings = { targetLang: dom.targetLang.value.trim() || 'en', cloudOcr: dom.cloudOcr.checked };
+      await callStudio({
+        type: 'save-settings',
+        targetLang: dom.targetLang.value,
+        cloudOcr: dom.cloudOcr.checked,
+        readingDirection: dom.readingDirection.value,
+      });
+      settings = {
+        targetLang: dom.targetLang.value.trim() || 'en',
+        cloudOcr: dom.cloudOcr.checked,
+        readingDirection: dom.readingDirection.value === 'rtl' ? 'rtl' : 'ltr',
+      };
       dom.settingsStatus.textContent = 'Salvo!';
       setTimeout(() => { dom.settingsStatus.textContent = ''; }, 2000);
     } catch (err) {
@@ -198,7 +209,9 @@
     let originalLines;
     for (;;) {
       const outcome = await callStudio({ type: 'cloud-poll', sessionId });
-      if (outcome.status === 'done') { originalLines = outcome.lines || []; break; }
+      // contrato do straw-studio-ai-cloud: 'processing' | 'done' (com
+      // outputs.lines) | 'error' (com message)
+      if (outcome.status === 'done') { originalLines = (outcome.outputs && outcome.outputs.lines) || []; break; }
       if (outcome.status === 'error') throw new Error(outcome.message || 'Falha na nuvem.');
       await new Promise((resolve) => setTimeout(resolve, delay));
       delay = Math.min(delay * 1.5, 4000);
