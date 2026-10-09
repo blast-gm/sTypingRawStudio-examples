@@ -1,49 +1,41 @@
 # Page Translator Mobile
 
-Traduz o roteiro **já existente** de uma página, linha por linha, com
-um tradutor gratuito (`studio.translate.free`) - **sem nenhuma IA**:
-nenhum modelo local de visão, nenhuma chave, **sem depender do
-Gemini** em nenhum momento. Por não precisar carregar modelo nenhum
-(nem `.onnx` de detecção, nem chamada multimodal), é **rápida** -
-pensada pra rodar bem até em celulares mais fracos, do mesmo jeito que
-o [Page Translator](../page-translator) original é rápido no caminho
-"sem chave" dele (esta extensão é, na prática, só esse caminho,
-promovido a único).
+Traduz uma página com um tradutor gratuito (`studio.translate.free`) -
+**sem nenhuma IA generativa**: nenhuma chave, **sem depender do
+Gemini** em nenhum momento, em nenhum caminho. Segue a mesma ideia do
+[Page Translator](../page-translator) original (tenta "enxergar" a
+imagem primeiro, com fallback automático pro texto já existente) - só
+que aqui, em vez do Gemini, quem lê a imagem é uma **nuvem própria**
+(ver abaixo), e quem traduz é **sempre** o tradutor gratuito, sem
+exceção:
 
-## Por que não detecta balão na imagem
+- **Página já tem roteiro digitado** (`script.traw`): traduz ele
+  direto, linha por linha - rápido, local, **sem tocar rede nenhuma**.
+- **Página só tem imagem** (projeto com `raw`, nada digitado ainda):
+  manda a imagem pra nuvem automaticamente (sem precisar ligar nada
+  nas configurações) pra detectar balão/texto e ler o conteúdo, e
+  traduz o que ela devolver.
 
-O [Page Translator](../page-translator) original detecta balões/texto
-com um modelo local (RT-DETRv2, ~44MB) e, com uma chave Gemini
-configurada, lê e traduz direto da imagem. Aqui não: sem visão
-computacional nenhuma não dá pra "ler" texto de uma imagem - esta
-extensão só traduz o que já estiver **digitado** no roteiro da página
-(`script.traw`). Se a página ainda não tiver nenhum roteiro, não há o
-que traduzir por esse caminho.
+## Modo nuvem (automático, não é opcional)
 
-## Modo nuvem (opcional, desligado por padrão)
-
-Só existe pra cobrir esse caso ("página só com `raw`, nada digitado
-ainda"). Em vez de pedir pra cada pessoa configurar a própria chave
-Gemini (o que o pedido original queria evitar), esse modo usa a
-**mesma** API na nuvem já usada pelo
+Entra sozinho sempre que a página não tiver roteiro nenhum ainda -
+usa a **mesma** API na nuvem já usada pelo
 [Smart Cleaner Mobile](../smart-cleaner-mobile) (`straw-studio-ai-cloud`,
 sessão autodestrutiva, sem chave nenhuma - rate limit por IP do lado do
-servidor em vez de credencial) - só que com uma operação diferente:
+servidor em vez de credencial), só que com uma operação diferente:
 `detect-text` em vez do fluxo genérico (`model`/`feeds`/`outputNames`)
 usado pra rodar o MI-GAN. Essa operação detecta balão/texto (RT-DETRv2,
-mesmo modelo local do Page Translator original) e lê o conteúdo (OCR,
-via Tesseract) - modelos **abertos, auto-hospedados**, nenhuma IA
-generativa de terceiros. A **tradução** do texto reconhecido continua
-acontecendo localmente, pelo mesmo `studio.translate.free` de sempre -
-o servidor nunca traduz nada, só devolve o texto original lido da
-imagem.
+mesmo modelo local do Page Translator original, agora rodando no
+servidor) e lê o conteúdo (OCR, via Tesseract) - modelos **abertos,
+auto-hospedados**, nenhuma IA generativa de terceiros. A **tradução**
+do texto reconhecido continua acontecendo sempre localmente, pelo
+mesmo `studio.translate.free` - o servidor nunca traduz nada, só
+devolve o texto original lido da imagem.
 
-Ative em **Configurações → "Detectar texto na nuvem (opcional)"**. A
-**ordem de leitura dos balões** (ocidental ou mangá) também fica nas
-configurações, mas só importa pra esse modo - sem detecção de imagem
-nenhuma, o caminho padrão não tem balão nenhum pra ordenar. Precisa de
-internet só quando usado; o caminho padrão (com roteiro já existente)
-nunca toca rede nenhuma.
+A **ordem de leitura dos balões** (ocidental ou mangá), nas
+configurações, só importa pra esse modo - sem detecção de imagem,
+não há balão nenhum pra ordenar. Se a página não tiver roteiro **nem**
+imagem nenhuma, não há nada pra traduzir por nenhum caminho.
 
 ## Onde fica o resultado (rascunho → roteiro)
 

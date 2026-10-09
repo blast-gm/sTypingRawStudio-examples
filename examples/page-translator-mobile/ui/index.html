@@ -12,30 +12,20 @@
       <summary>⚙ Configurações</summary>
       <div class="settingsBody">
         <p class="hint">
-          <strong>Sem IA, sem chave, sem Gemini</strong> - traduz o roteiro
-          que já existir na página usando um tradutor gratuito. Rápido:
-          não carrega nenhum modelo, nem imagem nenhuma é processada.
+          <strong>Sem IA generativa, sem chave, sem Gemini</strong> - traduz
+          sempre com um tradutor gratuito. Página com roteiro já digitado:
+          traduz ele direto, local e rápido, sem tocar rede nenhuma.
+          Página só com imagem (sem roteiro ainda): detecta e lê o texto
+          automaticamente numa nuvem própria (sessão autodestrutiva, sem
+          chave nenhuma - mesmo servidor do Smart Cleaner Mobile), e
+          traduz o que ela devolver - a tradução em si nunca sai do
+          celular.
         </p>
 
         <label for="targetLang">Idioma de destino</label>
         <input id="targetLang" type="text" placeholder="ex: en, pt, es, ja" />
 
-        <label class="checkboxRow">
-          <input id="cloudOcr" type="checkbox" />
-          Detectar texto na nuvem (opcional, só pra páginas sem roteiro)
-        </label>
-        <p class="hint">
-          Só é usado quando a página ainda não tem NENHUM roteiro (projeto
-          só com imagem "raw") - nesse caso não há texto nenhum pra
-          traduzir localmente. Manda a imagem pra um servidor próprio
-          (sem Gemini, sem IA de terceiros, sessão autodestrutiva - mesma
-          nuvem usada pelo Smart Cleaner Mobile) que só detecta e lê o
-          texto da imagem; a tradução continua sendo feita localmente,
-          pelo mesmo tradutor gratuito de sempre. Desligado por padrão -
-          precisa de internet quando ativado.
-        </p>
-
-        <label for="readingDirection">Ordem de leitura dos balões (só afeta o modo nuvem)</label>
+        <label for="readingDirection">Ordem de leitura dos balões (só afeta páginas sem roteiro, lidas via nuvem)</label>
         <select id="readingDirection">
           <option value="ltr">Ocidental - esquerda → direita (comics)</option>
           <option value="rtl">Mangá - direita → esquerda</option>

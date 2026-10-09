@@ -22,7 +22,6 @@
   const el = (id) => document.getElementById(id);
   const dom = {
     targetLang: el('targetLang'),
-    cloudOcr: el('cloudOcr'),
     readingDirection: el('readingDirection'),
     btnSaveSettings: el('btnSaveSettings'),
     settingsStatus: el('settingsStatus'),
@@ -46,7 +45,7 @@
   let currentPageKey = null;
   let pageKeys = [];
   let currentState = null;
-  let settings = { targetLang: 'en', cloudOcr: false, readingDirection: 'ltr' };
+  let settings = { targetLang: 'en', readingDirection: 'ltr' };
 
   function linesToText(lines) {
     return (lines || []).join('\n');
@@ -127,7 +126,6 @@
   async function loadSettings() {
     settings = await callStudio({ type: 'get-settings' });
     dom.targetLang.value = settings.targetLang || 'en';
-    dom.cloudOcr.checked = Boolean(settings.cloudOcr);
     dom.readingDirection.value = settings.readingDirection === 'rtl' ? 'rtl' : 'ltr';
   }
 
@@ -164,12 +162,10 @@
       await callStudio({
         type: 'save-settings',
         targetLang: dom.targetLang.value,
-        cloudOcr: dom.cloudOcr.checked,
         readingDirection: dom.readingDirection.value,
       });
       settings = {
         targetLang: dom.targetLang.value.trim() || 'en',
-        cloudOcr: dom.cloudOcr.checked,
         readingDirection: dom.readingDirection.value === 'rtl' ? 'rtl' : 'ltr',
       };
       dom.settingsStatus.textContent = 'Salvo!';
@@ -225,22 +221,27 @@
     if (!currentPageKey) return;
     setBusy(true);
     try {
-      // caminho rapido (padrao, sem IA nenhuma): traduz o roteiro ja
-      // existente via tradutor gratuito - so cai pro modo nuvem
-      // (opcional) se a pagina nao tiver NENHUM roteiro ainda e a
-      // pessoa tiver ativado isso explicitamente nas configuracoes.
+      // mesma ideia do Page Translator original (tentava o Gemini e só
+      // caía pro tradutor gratuito se não desse) - só que AQUI, sem
+      // nenhuma IA generativa: roteiro já existente -> traduz ele
+      // direto (rápido, sem tocar rede nenhuma); sem roteiro mas COM
+      // imagem -> usa a nuvem (detecção + OCR, nunca Gemini)
+      // automaticamente pra ler o texto, e traduz o que ela devolver -
+      // sem precisar ligar nada nas configurações.
       const hasScript = currentState && currentState.script && currentState.script.length;
-      if (!hasScript && settings.cloudOcr && currentState && currentState.imageBase64) {
-        setMainStatus('Detectando texto na nuvem (pode levar alguns segundos)...');
+      if (hasScript) {
+        setMainStatus('Traduzindo...');
+        const result = await callStudio({ type: 'run-translate', pageKey: currentPageKey });
+        dom.draftView.value = linesToText(result.draft);
+        setMainStatus('Rascunho gerado via tradutor gratuito e salvo.');
+      } else if (currentState && currentState.imageBase64) {
+        setMainStatus('Lendo texto da imagem na nuvem (pode levar alguns segundos)...');
         const lines = await detectAndTranslateViaCloud(currentState.imageBase64, settings.targetLang);
         dom.draftView.value = linesToText(lines);
         await callStudio({ type: 'save-draft', pageKey: currentPageKey, lines });
         setMainStatus('Rascunho gerado via nuvem (detecção + leitura de texto) e salvo.');
       } else {
-        setMainStatus('Traduzindo...');
-        const result = await callStudio({ type: 'run-translate', pageKey: currentPageKey });
-        dom.draftView.value = linesToText(result.draft);
-        setMainStatus('Rascunho gerado via tradutor gratuito e salvo.');
+        setMainStatus('Esta página não tem roteiro nem imagem nenhuma - nada pra traduzir.', true);
       }
     } catch (err) {
       setMainStatus('Erro: ' + err.message, true);

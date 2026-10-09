@@ -11,9 +11,6 @@ input, textarea, select { width: 100%; box-sizing: border-box; background: #1111
 textarea { min-height: 260px; resize: vertical; line-height: 1.5; }
 .hint { font-size: 11px; color: #77778a; margin: 6px 0 0; line-height: 1.5; }
 
-.checkboxRow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cfcfe0; }
-.checkboxRow input[type="checkbox"] { width: auto; margin: 0; }
-
 /* navegacao (Anterior/Próxima) centralizada; Recarregar sai do fluxo
    (position:absolute) pra nao disputar espaco nem empurrar a nav */
 .pageHeader { position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; gap: 10px; }

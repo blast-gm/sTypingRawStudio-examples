@@ -1,8 +1,8 @@
 {
   "id": "page-translator-mobile",
   "name": "Page Translator Mobile",
-  "version": "1.0.0",
-  "description": "Traduz o roteiro já existente da página, linha por linha, com um tradutor gratuito (sem IA, sem chave, sem Gemini) - rápido o bastante pra rodar bem no celular. Modo opcional 'nuvem' (desligado por padrão) cobre páginas ainda sem roteiro, usando um servidor próprio (sem Gemini) em vez de IA do app.",
+  "version": "1.1.0",
+  "description": "Traduz com um tradutor gratuito (sem IA generativa, sem chave, sem Gemini): roteiro já existente, traduz direto e rápido; página só com imagem, detecta e lê o texto automaticamente numa nuvem própria (sem Gemini) e traduz o que ela devolver.",
   "author": "sTraw Studio",
   "apiVersion": "1.0",
   "entry": "index.js",

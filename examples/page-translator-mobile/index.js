@@ -15,22 +15,30 @@
  * docs/extensions/project-api.md ("Roteiro oficial vs. rascunho") no
  * repo principal.
  *
- * MODO NUVEM (opcional, desligado por padrão): só existe pra cobrir o
- * caso em que a página AINDA NÃO TEM roteiro nenhum (projeto só com
- * "raw", nada digitado ainda) - sem roteiro não tem o que traduzir, e
- * sem visão computacional não dá pra "ler" o texto direto da imagem.
- * Em vez de depender do Gemini (que exigiria cada pessoa configurar a
- * própria chave), esse modo usa a MESMA API na nuvem já usada pelo
- * Smart Cleaner Mobile (straw-studio-ai-cloud, ver
- * examples/smart-cleaner-mobile) - sessão autodestrutiva, sem chave,
- * rate limit por IP do lado do servidor em vez de credencial. A
- * operação usada aqui é "detect-text" (detecção de balão + OCR com
- * modelos abertos, auto-hospedados - nunca Gemini/IA generativa de
- * terceiros) - DIFERENTE do fluxo genérico (model/feeds/outputNames)
- * que o Smart Cleaner Mobile usa pra rodar o MI-GAN; o mesmo servidor
- * atende os dois. A TRADUÇÃO do texto reconhecido continua sendo
- * feita localmente via studio.translate.free, nunca pelo servidor -
- * ele só devolve o texto ORIGINAL lido da imagem.
+ * MODO NUVEM (automático, SEM precisar ligar nada nas configurações):
+ * cobre o caso em que a página AINDA NÃO TEM roteiro nenhum (projeto
+ * só com "raw", nada digitado ainda) - sem roteiro não tem o que
+ * traduzir localmente, e sem visão computacional não dá pra "ler" o
+ * texto direto da imagem. Mesma ideia do Page Translator original
+ * (que tentava o Gemini primeiro e só caía pro tradutor gratuito se
+ * não desse) - só que aqui, em vez do Gemini, quem faz a parte de
+ * "enxergar" a imagem é a MESMA API na nuvem já usada pelo Smart
+ * Cleaner Mobile (straw-studio-ai-cloud, ver
+ * examples/smart-cleaner-mobile): sessão autodestrutiva, sem chave,
+ * rate limit por IP do lado do servidor em vez de credencial, modelos
+ * abertos auto-hospedados - NUNCA Gemini nem qualquer IA generativa de
+ * terceiros. A operação usada é "detect-text" (detecção de balão +
+ * OCR) - DIFERENTE do fluxo genérico (model/feeds/outputNames) que o
+ * Smart Cleaner Mobile usa pra rodar o MI-GAN; o mesmo servidor atende
+ * os dois. A TRADUÇÃO do texto reconhecido continua SEMPRE sendo feita
+ * localmente via studio.translate.free - a nuvem só detecta/lê, nunca
+ * traduz nada.
+ *
+ * Resumindo o fluxo de 'run-translate' (ver mais abaixo): roteiro já
+ * existente -> traduz ele direto (rápido, sem tocar rede nenhuma); sem
+ * roteiro mas COM imagem -> usa a nuvem pra ler o texto e traduz o que
+ * ela devolver; sem roteiro E sem imagem nenhuma -> não há nada pra
+ * traduzir de jeito nenhum.
  */
 module.exports = function (studio) {
   // mesma API na nuvem do Smart Cleaner Mobile (straw-studio-ai-cloud)
@@ -41,9 +49,9 @@ module.exports = function (studio) {
   function getSettings() {
     return {
       targetLang: studio.settings.get('targetLang') || 'en',
-      cloudOcr: studio.settings.get('cloudOcr') === true,
-      // so usado pelo modo nuvem (op "detect-text") - define em que
-      // ordem os baloes detectados viram linhas do rascunho
+      // so usado pelo modo nuvem (op "detect-text", automatico quando
+      // a pagina nao tem roteiro) - define em que ordem os baloes
+      // detectados viram linhas do rascunho
       readingDirection: studio.settings.get('readingDirection') === 'rtl' ? 'rtl' : 'ltr',
     };
   }
@@ -160,7 +168,6 @@ module.exports = function (studio) {
 
             case 'save-settings': {
               studio.settings.set('targetLang', (msg.targetLang || 'en').trim());
-              studio.settings.set('cloudOcr', Boolean(msg.cloudOcr));
               studio.settings.set('readingDirection', msg.readingDirection === 'rtl' ? 'rtl' : 'ltr');
               return { ok: true };
             }
@@ -168,14 +175,17 @@ module.exports = function (studio) {
             case 'get-page-state':
               return loadPageState(msg.pageKey);
 
+            // só o caminho "já tem roteiro" (rápido, sem rede nenhuma) -
+            // o painel (ui/app.js) decide sozinho se chama isto ou o
+            // modo nuvem (cloud-create-session/process/poll +
+            // translate-lines abaixo), conforme a página tiver roteiro
+            // ou não. Chamado direto sem roteiro nenhum, é um erro -
+            // nunca deveria acontecer vindo do painel normal.
             case 'run-translate': {
               const { targetLang } = getSettings();
               const state = await loadPageState(msg.pageKey);
               if (!state.script.length) {
-                throw new Error(
-                  'Esta página ainda não tem roteiro nenhum pra traduzir - digite/importe o roteiro ' +
-                  'original primeiro, ou ative "Detectar texto na nuvem (opcional)" nas configurações.'
-                );
+                throw new Error('Esta página ainda não tem roteiro nenhum pra traduzir localmente.');
               }
               const draft = await draftViaFreeTranslate(state.script, targetLang);
               await studio.project.writeTranslateDraft(state.pageKey, draft);
