@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Page Translator (OCR local)</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="root">
+    <details id="settingsBox">
+      <summary>⚙ Configurações</summary>
+      <div class="settingsBody">
+        <p class="hint">
+          <strong>Versão de TESTE (desktop)</strong> - sem IA generativa,
+          sem Gemini, sem rede nenhuma. Página com roteiro: traduz direto
+          (tradutor gratuito). Página só com imagem: detecta balão
+          (RT-DETRv2, local) e lê o texto com <strong>manga-ocr</strong>
+          (ONNX, local - modelo especializado em letreiramento de mangá),
+          depois traduz o que saiu. Serve pra calibrar o pipeline antes
+          de portar pro Mobile (nuvem).
+        </p>
+
+        <label for="targetLang">Idioma de destino</label>
+        <input id="targetLang" type="text" placeholder="ex: en, pt, es, ja" />
+
+        <label for="readingDirection">Ordem de leitura dos balões</label>
+        <select id="readingDirection">
+          <option value="ltr">Ocidental - esquerda → direita (comics)</option>
+          <option value="rtl">Mangá - direita → esquerda</option>
+        </select>
+
+        <label for="confidence">Confiança mínima da detecção de balão (<span id="confidenceLabel">0.50</span>)</label>
+        <input id="confidence" type="range" min="0.1" max="0.9" step="0.05" />
+        <p class="hint">
+          Mais baixo detecta mais regiões (inclusive algumas erradas);
+          mais alto é mais seletivo (pode perder balão de verdade). Ajuste
+          testando com suas páginas até achar o ponto certo.
+        </p>
+
+        <div class="actions">
+          <button id="btnSaveSettings">Salvar configurações</button>
+          <span id="settingsStatus" class="status"></span>
+        </div>
+      </div>
+    </details>
+
+    <div class="pageHeader">
+      <div class="pageNav">
+        <button id="btnPrevPage" class="ghost" title="Página anterior">◀ Anterior</button>
+        <span id="pageLabel">Página: -</span>
+        <button id="btnNextPage" class="ghost" title="Próxima página">Próxima ▶</button>
+      </div>
+      <button id="btnReload" class="ghost" title="Recarregar com a página atual do editor">Recarregar</button>
+    </div>
+
+    <div class="columns">
+      <div class="col">
+        <label>Tradução (rascunho - translate.traw) - editável</label>
+        <textarea id="draftView" placeholder="(sem rascunho ainda - clique em Traduzir)"></textarea>
+      </div>
+      <div class="col">
+        <label>Roteiro da página (script.traw) - editável, no formato do .traw</label>
+        <div id="scriptView" class="script-chips"></div>
+      </div>
+    </div>
+
+    <div class="actions main">
+      <button id="btnTranslate">Traduzir esta página</button>
+      <button id="btnSaveDraft" class="secondary">Salvar rascunho</button>
+      <button id="btnTestDraft" class="secondary" title="Copia o rascunho pra área do roteiro só como prévia - não grava nada">Testar rascunho</button>
+      <button id="btnSaveScript" class="confirm">Salvar roteiro</button>
+    </div>
+    <p id="mainStatus" class="status"></p>
+
+    <div id="pagePreviewWrap" hidden>
+      <img id="pagePreviewImg" alt="Prévia da página atual" />
+    </div>
+  </div>
+
+  <script src="vocab.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

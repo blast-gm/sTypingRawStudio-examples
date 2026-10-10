@@ -1,0 +1,12 @@
+{
+  "id": "page-translator-local-ocr",
+  "name": "Page Translator (OCR local)",
+  "version": "0.1.0",
+  "description": "Versão de TESTE (desktop) do Page Translator sem IA de terceiros: detecta balão (RT-DETRv2, local) e lê o texto com manga-ocr (ONNX, 100% local, modelo especializado em letreiramento de mangá) - nunca Gemini, nunca nuvem. Traduz com o tradutor gratuito. Serve pra calibrar o pipeline de OCR antes de portar pro Mobile.",
+  "author": "sTraw Studio",
+  "apiVersion": "1.0",
+  "entry": "index.js",
+  "icon": "translate",
+  "permissions": ["project:read", "project:write", "image:processing", "translate", "settings"],
+  "minAppVersion": "1.0.0"
+}
