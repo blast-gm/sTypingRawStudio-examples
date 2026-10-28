@@ -34,10 +34,18 @@
           <option value="rtl">Mangá - direita → esquerda</option>
         </select>
 
+        <label for="ocrEngine">IA de leitura do texto original (OCR, só quando a página ainda não tem roteiro)</label>
+        <select id="ocrEngine">
+          <option value="auto">Automático (decide pelo idioma/formato da página)</option>
+          <option value="manga-ocr">Mangá japonês (manga-ocr)</option>
+          <option value="easyocr">Coreano/manhwa e outros (EasyOCR)</option>
+        </select>
+
         <p class="hint">
           Com roteiro: traduz o texto já digitado da página via CoopIA
           (LibreTranslate self-hosted). Sem roteiro ainda: detecta balão/texto
-          (RT-DETRv2) e lê o texto original (OCR, Tesseract) antes de
+          (RT-DETRv2) e lê o texto original (OCR com manga-ocr/EasyOCR, ou
+          Tesseract se o serviço de IA estiver fora do ar) antes de
           traduzir - tudo no servidor do CoopIA, sem Gemini/IA de terceiros.
           1 crédito por fala em ambos os casos.
         </p>

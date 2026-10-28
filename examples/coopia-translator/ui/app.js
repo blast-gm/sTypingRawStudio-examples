@@ -37,6 +37,7 @@
     appBody: el('appBody'),
     targetLang: el('targetLang'),
     readingDirection: el('readingDirection'),
+    ocrEngine: el('ocrEngine'),
     btnSaveSettings: el('btnSaveSettings'),
     settingsStatus: el('settingsStatus'),
     pageLabel: el('pageLabel'),
@@ -153,6 +154,7 @@
     const settings = await callStudio({ type: 'get-settings' });
     dom.targetLang.value = settings.targetLang || 'en';
     dom.readingDirection.value = settings.readingDirection === 'rtl' ? 'rtl' : 'ltr';
+    dom.ocrEngine.value = ['auto', 'manga-ocr', 'easyocr'].includes(settings.ocrEngine) ? settings.ocrEngine : 'auto';
   }
 
   async function loadPage(pageKey) {
@@ -185,7 +187,7 @@
     dom.settingsStatus.textContent = '';
     dom.settingsStatus.classList.remove('error');
     try {
-      await callStudio({ type: 'save-settings', targetLang: dom.targetLang.value, readingDirection: dom.readingDirection.value });
+      await callStudio({ type: 'save-settings', targetLang: dom.targetLang.value, readingDirection: dom.readingDirection.value, ocrEngine: dom.ocrEngine.value });
       dom.settingsStatus.textContent = 'Salvo!';
       setTimeout(() => { dom.settingsStatus.textContent = ''; }, 2000);
     } catch (err) {
@@ -207,9 +209,10 @@
   /** Cria sessão -> dispara "detect-text" -> espera com backoff (setTimeout só existe AQUI, no
    *  painel - index.js roda num sandbox vm sem ele) -> devolve as linhas (texto original, sem
    *  tradução nenhuma ainda). */
-  async function detectAndReadViaCoopIA(image, readingDirection) {
+  async function detectAndReadViaCoopIA(image, readingDirection, ocrEngine) {
     const { sessionId } = await callStudio({ type: 'cloud-create-session' });
-    await callStudio({ type: 'cloud-process-detect', sessionId, image, readingDirection });
+    // "auto" é só um rótulo da UI - pro servidor, "não forçar motor nenhum" é não mandar o campo
+    await callStudio({ type: 'cloud-process-detect', sessionId, image, readingDirection, ocrEngine: ocrEngine === 'auto' ? undefined : ocrEngine });
     let delay = 500;
     for (;;) {
       const outcome = await callStudio({ type: 'cloud-poll', sessionId });
@@ -238,7 +241,7 @@
       }
       try {
         setMainStatus('Detectando balões e lendo o texto original (pode levar um instante)...');
-        const lines = await detectAndReadViaCoopIA(currentImageBase64, dom.readingDirection.value);
+        const lines = await detectAndReadViaCoopIA(currentImageBase64, dom.readingDirection.value, dom.ocrEngine.value);
         if (!lines.length) {
           setMainStatus('Nenhum texto legível foi detectado nesta página.', true);
           setBusy(false);

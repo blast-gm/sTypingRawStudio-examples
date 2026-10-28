@@ -55,12 +55,18 @@ module.exports = function (studio) {
     setToken('');
   }
 
+  const OCR_ENGINES = ['auto', 'manga-ocr', 'easyocr'];
   function getSettings() {
     return {
       targetLang: studio.settings.get('targetLang') || 'en',
       // ordem de leitura usada SÓ pela detecção na imagem (sem roteiro ainda) - agrupa balões
       // por fileira e ordena cada fileira nessa direção (ver textDetect.js no servidor).
       readingDirection: studio.settings.get('readingDirection') === 'rtl' ? 'rtl' : 'ltr',
+      // qual IA de OCR usar na detecção (sem roteiro ainda, ver "op: detect-text" no servidor):
+      // "auto" deixa o servidor decidir pelo idioma/proporção da página; dá pra forçar
+      // manga-ocr (mangá japonês) ou easyocr (coreano/manhwa e o resto) e trocar a qualquer
+      // momento - nada fica "preso" de uma chamada pra outra.
+      ocrEngine: OCR_ENGINES.includes(studio.settings.get('ocrEngine')) ? studio.settings.get('ocrEngine') : 'auto',
     };
   }
 
@@ -141,6 +147,7 @@ module.exports = function (studio) {
             case 'save-settings':
               studio.settings.set('targetLang', (msg.targetLang || 'en').trim());
               studio.settings.set('readingDirection', msg.readingDirection === 'rtl' ? 'rtl' : 'ltr');
+              studio.settings.set('ocrEngine', OCR_ENGINES.includes(msg.ocrEngine) ? msg.ocrEngine : 'auto');
               return { ok: true };
 
             case 'get-page-state': return loadPageState(msg.pageKey);
@@ -163,7 +170,7 @@ module.exports = function (studio) {
             case 'cloud-process-detect':
               return cloudFetch(`/sessions/${msg.sessionId}/process`, {
                 method: 'POST',
-                body: JSON.stringify({ op: 'detect-text', image: msg.image, readingDirection: msg.readingDirection }),
+                body: JSON.stringify({ op: 'detect-text', image: msg.image, readingDirection: msg.readingDirection, ocrEngine: msg.ocrEngine }),
               });
             case 'cloud-poll': return cloudFetch(`/sessions/${msg.sessionId}/result`);
 
