@@ -1,0 +1,12 @@
+{
+  "id": "coopia-translator",
+  "name": "CoopIA - Traduzir página",
+  "version": "1.0.0",
+  "description": "Traduz o roteiro já existente de uma página 100% na nuvem do CoopIA - sem Gemini, sem chave de API, sem IA local no app. Precisa de login (mesmo ID/senha do TeamDrive) e consome 1 crédito por fala traduzida.",
+  "author": "sTraw Studio",
+  "apiVersion": "1.0",
+  "entry": "index.js",
+  "icon": "translate",
+  "permissions": ["project:read", "project:write", "settings", "network"],
+  "minAppVersion": "1.0.0"
+}

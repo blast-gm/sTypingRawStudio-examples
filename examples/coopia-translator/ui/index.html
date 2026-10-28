@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CoopIA - Traduzir página</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="root">
+    <div id="loginScreen">
+      <h2>Entrar no CoopIA</h2>
+      <p class="hint">Mesmo ID e senha do TeamDrive (ex.: <code>NOMEDOTIME_0001</code>).</p>
+      <label for="loginCode">ID</label>
+      <input id="loginCode" type="text" autocomplete="username" placeholder="NOMEDOTIME_0001" />
+      <label for="loginPassword">Senha</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" />
+      <div id="setupHint" class="hint" hidden>Primeiro acesso: escolha uma senha (mín. 8 caracteres) para este ID.</div>
+      <div class="actions">
+        <button id="btnLogin">Entrar</button>
+        <span id="loginStatus" class="status"></span>
+      </div>
+    </div>
+
+    <details id="settingsBox" hidden>
+      <summary>Configurações / Conta</summary>
+      <div class="settingsBody">
+        <label for="targetLang">Idioma de destino</label>
+        <input id="targetLang" type="text" placeholder="ex: en, pt, es, ja" />
+        <p class="hint">
+          Traduz o roteiro já existente da página via CoopIA (LibreTranslate
+          self-hosted, sem API externa) - 1 crédito por fala. Sem roteiro
+          ainda nesta página, não há texto pra traduzir (sem visão/OCR, não
+          dá pra "ler" um balão vazio).
+        </p>
+        <p class="hint">Logado como <strong id="loggedAsCode">-</strong> · Time <strong id="loggedAsTeam">-</strong> · Créditos: <strong id="creditsLabel">-</strong></p>
+        <div class="actions">
+          <button id="btnSaveSettings">Salvar configurações</button>
+          <button id="btnLogout" class="secondary">Sair</button>
+          <span id="settingsStatus" class="status"></span>
+        </div>
+      </div>
+    </details>
+
+    <div id="appBody" hidden>
+      <div class="pageHeader">
+        <div class="pageNav">
+          <button id="btnPrevPage" class="ghost" title="Página anterior">◀ Anterior</button>
+          <span id="pageLabel">Página: -</span>
+          <button id="btnNextPage" class="ghost" title="Próxima página">Próxima ▶</button>
+        </div>
+        <button id="btnReload" class="ghost" title="Recarregar com a página atual do editor">Recarregar</button>
+      </div>
+
+      <div class="columns">
+        <div class="col">
+          <label>Tradução (rascunho - translate.traw) - editável</label>
+          <textarea id="draftView" placeholder="(sem rascunho ainda - clique em Traduzir)"></textarea>
+        </div>
+        <div class="col">
+          <label>Roteiro da página (script.traw) - editável, no formato do .traw</label>
+          <div id="scriptView" class="script-chips"></div>
+        </div>
+      </div>
+
+      <div class="actions main">
+        <button id="btnTranslate">Traduzir esta página</button>
+        <button id="btnSaveDraft" class="secondary">Salvar rascunho</button>
+        <button id="btnTestDraft" class="secondary" title="Copia o rascunho pra área do roteiro só como prévia - não grava nada">Testar rascunho</button>
+        <button id="btnSaveScript" class="confirm">Salvar roteiro</button>
+      </div>
+      <p id="mainStatus" class="status"></p>
+
+      <div id="pagePreviewWrap" hidden>
+        <img id="pagePreviewImg" alt="Prévia da página atual" />
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
