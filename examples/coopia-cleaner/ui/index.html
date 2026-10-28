@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>CoopIA - Limpar páginas</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="loginScreen">
+    <div class="loginBox">
+      <h2>Entrar no CoopIA</h2>
+      <p class="hint">Mesmo ID e senha do TeamDrive (ex.: <code>NOMEDOTIME_0001</code>).</p>
+      <label for="loginCode">ID</label>
+      <input id="loginCode" type="text" autocomplete="username" placeholder="NOMEDOTIME_0001" />
+      <label for="loginPassword">Senha</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" />
+      <div id="setupHint" class="hint" hidden>Primeiro acesso: escolha uma senha (mín. 8 caracteres) para este ID.</div>
+      <div class="actions">
+        <button id="btnLogin" class="primary">Entrar</button>
+        <span id="loginStatus" class="status"></span>
+      </div>
+    </div>
+  </div>
+
+  <details id="settingsBox" hidden>
+    <summary>⚙ Sobre / Conta</summary>
+    <div class="settingsBody">
+      <p class="hint">
+        Reconstrução via <strong>MI-GAN</strong> rodando no servidor do CoopIA
+        (sem Gemini, sem IA local no app) - só o recorte da área pintada é
+        enviado, nunca a página inteira; a sessão se autodestrói assim que a
+        extensão recebe a resposta. Cada página <strong>confirmada</strong>
+        consome 1 crédito (os traços em si, enquanto você ainda está
+        pintando, não cobram nada).
+      </p>
+      <p class="hint">Logado como <strong id="loggedAsCode">-</strong> · Time <strong id="loggedAsTeam">-</strong> · Créditos: <strong id="creditsLabel">-</strong></p>
+      <div class="actions">
+        <button id="btnLogout">Sair</button>
+        <span id="settingsStatus" class="status"></span>
+      </div>
+    </div>
+  </details>
+
+  <div id="toolbar" hidden>
+    <div class="toolbar-group">
+      <label>Pincel</label>
+      <input id="brushSize" type="range" min="8" max="120" value="36" />
+      <span id="brushSizeLabel" class="mono">36px</span>
+      <button id="panModeBtn" class="icon-toggle" title="Modo mover - desliga a limpeza e deixa arrastar com 1 dedo (igual segurar espaço no PC). Útil no celular, onde mover com 2 dedos às vezes falha.">✋</button>
+    </div>
+    <div class="toolbar-group">
+      <button id="prevPageBtn" title="Página anterior" disabled>← Anterior</button>
+      <span id="pageLabel" class="mono">-</span>
+      <button id="nextPageBtn" title="Próxima página" disabled>Próxima →</button>
+    </div>
+    <div class="toolbar-group">
+      <button id="undoBtn" disabled>↶ Desfazer (Ctrl+Z)</button>
+      <button id="confirmBtn" class="primary" disabled>Confirmar página (1 crédito) →</button>
+    </div>
+  </div>
+
+  <div id="canvasWrap">
+    <div id="emptyState" hidden>Nenhuma página com imagem ("raw" ou já limpa) neste projeto.</div>
+    <canvas id="imageCanvas"></canvas>
+    <canvas id="maskCanvas"></canvas>
+    <div id="statusOverlay" hidden>
+      <div class="spinner"></div>
+      <span id="statusText">Processando...</span>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
