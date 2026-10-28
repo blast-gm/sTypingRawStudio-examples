@@ -99,12 +99,16 @@
   const DISPLAY_PADDING = 24;
 
   // % do maior lado da area pintada, adicionado de cada lado do
-  // recorte mandado pro modelo - mesmo raciocinio/valor do Smart
-  // Cleaner original (LaMa): da contexto suficiente ao redor pro
+  // recorte mandado pro modelo - da contexto suficiente ao redor pro
   // modelo reconstruir com coerencia, sem mandar a pagina inteira
-  // (mais lento, mais memoria) quando o traco e pequeno.
-  const CROP_PADDING_FACTOR = 0.6;
-  const CROP_MIN_PADDING = 24;
+  // (mais lento, mais memoria) quando o traco e pequeno. Valores
+  // AUMENTADOS (eram 0.6/24px): traco pequeno + pouca margem vira um
+  // recorte minusculo que o resize pra 512x512 amplia demais (ex: 5x+),
+  // borrando a imagem ANTES do modelo ver ela - ele erra linhas finas
+  // continuas (ex: contorno de montanha) por falta de pixels reais de
+  // contexto, nao por falha do modelo em si.
+  const CROP_PADDING_FACTOR = 0.8;
+  const CROP_MIN_PADDING = 80;
 
   // lista de TODAS as paginas editaveis (com raw e/ou pages, nao so as
   // pendentes) + o indice da que esta aberta agora - permite ir e
