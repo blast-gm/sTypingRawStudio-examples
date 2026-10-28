@@ -27,11 +27,19 @@
       <div class="settingsBody">
         <label for="targetLang">Idioma de destino</label>
         <input id="targetLang" type="text" placeholder="ex: en, pt, es, ja" />
+
+        <label for="readingDirection">Ordem de leitura dos balões (só quando a página ainda não tem roteiro)</label>
+        <select id="readingDirection">
+          <option value="ltr">Ocidental - esquerda → direita (comics)</option>
+          <option value="rtl">Mangá - direita → esquerda</option>
+        </select>
+
         <p class="hint">
-          Traduz o roteiro já existente da página via CoopIA (LibreTranslate
-          self-hosted, sem API externa) - 1 crédito por fala. Sem roteiro
-          ainda nesta página, não há texto pra traduzir (sem visão/OCR, não
-          dá pra "ler" um balão vazio).
+          Com roteiro: traduz o texto já digitado da página via CoopIA
+          (LibreTranslate self-hosted). Sem roteiro ainda: detecta balão/texto
+          (RT-DETRv2) e lê o texto original (OCR, Tesseract) antes de
+          traduzir - tudo no servidor do CoopIA, sem Gemini/IA de terceiros.
+          1 crédito por fala em ambos os casos.
         </p>
         <p class="hint">Logado como <strong id="loggedAsCode">-</strong> · Time <strong id="loggedAsTeam">-</strong> · Créditos: <strong id="creditsLabel">-</strong></p>
         <div class="actions">

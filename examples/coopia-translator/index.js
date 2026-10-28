@@ -1,13 +1,16 @@
 /**
- * CoopIA - Traduzir página. Fork do Page Translator que remove o Gemini (e portanto a leitura de
- * texto direto da imagem - sem um modelo de visão/OCR verificado pra rodar no servidor, não dá pra
- * "ler" balão sem texto já digitado) e usa SEMPRE o tradutor do CoopIA (LibreTranslate self-hosted,
- * sem API externa) pro roteiro OFICIAL que a página já tiver - igual ao caminho "sem chave Gemini"
- * do extension original, só que agora é o ÚNICO caminho, autenticado, e cobrando 1 crédito por fala.
+ * CoopIA - Traduzir página. Fork do Page Translator que troca o Gemini por dois caminhos 100%
+ * locais/self-hosted, autenticados (mesmo ID/senha do TeamDrive), cobrando 1 crédito por fala:
+ *
+ * - Roteiro já existe: traduz o texto já digitado (script.traw) via CoopIA (LibreTranslate) -
+ *   igual ao caminho "sem chave Gemini" do extension original, só que é sempre esse caminho aqui.
+ * - Página ainda sem roteiro: detecta balão/texto (RT-DETRv2) e LÊ o texto original (OCR via
+ *   Tesseract, tudo rodando no servidor do CoopIA - ver "op: detect-text" em sTrawStudio-CoopIA)
+ *   e then traduz as linhas lidas. Cobre o mesmo caso que só o Gemini cobria antes, sem IA
+ *   generativa de terceiros nenhuma.
  *
  * Mantém: rascunho (translate.traw) revisável antes de virar roteiro oficial, navegação entre
- * páginas sem fechar o painel, "Salvar roteiro"/studio.editor.refresh() - só a origem da tradução
- * (studio.translate.free -> CoopIA) e a exigência de login mudam.
+ * páginas sem fechar o painel, "Salvar roteiro"/studio.editor.refresh().
  */
 module.exports = function (studio) {
   const CLOUD_URL = 'https://ai.blast.net.br';
@@ -53,7 +56,20 @@ module.exports = function (studio) {
   }
 
   function getSettings() {
-    return { targetLang: studio.settings.get('targetLang') || 'en' };
+    return {
+      targetLang: studio.settings.get('targetLang') || 'en',
+      // ordem de leitura usada SÓ pela detecção na imagem (sem roteiro ainda) - agrupa balões
+      // por fileira e ordena cada fileira nessa direção (ver textDetect.js no servidor).
+      readingDirection: studio.settings.get('readingDirection') === 'rtl' ? 'rtl' : 'ltr',
+    };
+  }
+
+  /** Traduz uma lista de linhas JÁ LIDAS (uma por região, sem " / " - isso é só do formato do
+   *  script.traw) - usado depois do "op: detect-text" (ver cloud-process-detect abaixo). */
+  async function translateLines(lines, targetLang) {
+    if (!lines.length) return { draft: [], credits: null };
+    const out = await cloudFetch('/api/translate', { method: 'POST', body: JSON.stringify({ q: lines, target: targetLang }) });
+    return { draft: out.results.map((r) => (r.translatedText || '').trim()), credits: out.credits };
   }
 
   /**
@@ -124,19 +140,40 @@ module.exports = function (studio) {
             case 'get-settings': return getSettings();
             case 'save-settings':
               studio.settings.set('targetLang', (msg.targetLang || 'en').trim());
+              studio.settings.set('readingDirection', msg.readingDirection === 'rtl' ? 'rtl' : 'ltr');
               return { ok: true };
 
             case 'get-page-state': return loadPageState(msg.pageKey);
 
+            // caminho 1: roteiro já existe - traduz direto, numa chamada só (sem precisar de
+            // sessão na nuvem: não tem imagem nem modelo envolvido aqui, só tradução).
             case 'run-detection': {
               const { targetLang } = getSettings();
               const state = await loadPageState(msg.pageKey);
-              if (!state.script.length) {
-                throw new Error('Esta página ainda não tem roteiro nenhum - digite/importe o roteiro original primeiro (sem roteiro, não há texto pra traduzir).');
-              }
+              if (!state.script.length) throw new Error('NO_SCRIPT');
               const { draft, credits } = await draftViaCoopIA(state.script, targetLang);
               await studio.project.writeTranslateDraft(state.pageKey, draft);
               return { pageKey: state.pageKey, draft, credits };
+            }
+
+            // caminho 2: sem roteiro ainda - detecção+OCR precisa de sessão na nuvem (create/
+            // process/poll, ver sTrawStudio-CoopIA), e o loop de espera roda no PAINEL (ui/app.js,
+            // que tem setTimeout de verdade - este arquivo roda num sandbox vm sem ele).
+            case 'cloud-create-session': return cloudFetch('/sessions', { method: 'POST' });
+            case 'cloud-process-detect':
+              return cloudFetch(`/sessions/${msg.sessionId}/process`, {
+                method: 'POST',
+                body: JSON.stringify({ op: 'detect-text', image: msg.image, readingDirection: msg.readingDirection }),
+              });
+            case 'cloud-poll': return cloudFetch(`/sessions/${msg.sessionId}/result`);
+
+            // depois que o painel já tem as LINHAS lidas (texto original) - traduz e grava o
+            // rascunho, igual ao caminho 1.
+            case 'translate-lines': {
+              const { targetLang } = getSettings();
+              const { draft, credits } = await translateLines(msg.lines || [], targetLang);
+              await studio.project.writeTranslateDraft(msg.pageKey, draft);
+              return { pageKey: msg.pageKey, draft, credits };
             }
 
             case 'save-draft':

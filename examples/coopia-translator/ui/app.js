@@ -34,6 +34,7 @@
     btnLogout: el('btnLogout'),
     appBody: el('appBody'),
     targetLang: el('targetLang'),
+    readingDirection: el('readingDirection'),
     btnSaveSettings: el('btnSaveSettings'),
     settingsStatus: el('settingsStatus'),
     pageLabel: el('pageLabel'),
@@ -56,6 +57,7 @@
   // avancar/voltar sem precisar sair da tela da extensao
   let currentPageKey = null;
   let pageKeys = [];
+  let currentImageBase64 = null;
 
   function linesToText(lines) { return (lines || []).join('\n'); }
   function textToLines(text) { return text.split('\n').map((l) => l.trim()).filter((l) => l); }
@@ -140,6 +142,7 @@
   async function loadSettings() {
     const settings = await callStudio({ type: 'get-settings' });
     dom.targetLang.value = settings.targetLang || 'en';
+    dom.readingDirection.value = settings.readingDirection === 'rtl' ? 'rtl' : 'ltr';
   }
 
   async function loadPage(pageKey) {
@@ -152,6 +155,7 @@
       dom.pageLabel.textContent = `Página: ${state.pageKey}`;
       renderScriptChips(state.script);
       dom.draftView.value = linesToText(state.draft);
+      currentImageBase64 = state.imageBase64 || null;
       if (state.imageBase64) {
         dom.pagePreviewImg.src = `data:image/png;base64,${state.imageBase64}`;
         dom.pagePreviewWrap.hidden = false;
@@ -171,7 +175,7 @@
     dom.settingsStatus.textContent = '';
     dom.settingsStatus.classList.remove('error');
     try {
-      await callStudio({ type: 'save-settings', targetLang: dom.targetLang.value });
+      await callStudio({ type: 'save-settings', targetLang: dom.targetLang.value, readingDirection: dom.readingDirection.value });
       dom.settingsStatus.textContent = 'Salvo!';
       setTimeout(() => { dom.settingsStatus.textContent = ''; }, 2000);
     } catch (err) {
@@ -190,17 +194,54 @@
     if (idx !== -1 && idx < pageKeys.length - 1) loadPage(pageKeys[idx + 1]);
   });
 
+  /** Cria sessão -> dispara "detect-text" -> espera com backoff (setTimeout só existe AQUI, no
+   *  painel - index.js roda num sandbox vm sem ele) -> devolve as linhas (texto original, sem
+   *  tradução nenhuma ainda). */
+  async function detectAndReadViaCoopIA(image, readingDirection) {
+    const { sessionId } = await callStudio({ type: 'cloud-create-session' });
+    await callStudio({ type: 'cloud-process-detect', sessionId, image, readingDirection });
+    let delay = 500;
+    for (;;) {
+      const outcome = await callStudio({ type: 'cloud-poll', sessionId });
+      if (outcome.status === 'done') return outcome.outputs.lines || [];
+      if (outcome.status === 'error') throw new Error(outcome.message);
+      await new Promise((r) => setTimeout(r, delay));
+      delay = Math.min(delay * 1.5, 4000);
+    }
+  }
+
   dom.btnTranslate.addEventListener('click', async () => {
     if (!currentPageKey) return;
     setBusy(true);
-    setMainStatus('Traduzindo no CoopIA...');
     try {
+      setMainStatus('Traduzindo no CoopIA...');
       const result = await callStudio({ type: 'run-detection', pageKey: currentPageKey });
       dom.draftView.value = linesToText(result.draft);
       updateCreditsLabel(result.credits);
       setMainStatus('Rascunho traduzido e salvo.');
     } catch (err) {
-      setMainStatus('Erro: ' + err.message, true);
+      if (err.message !== 'NO_SCRIPT') { setMainStatus('Erro: ' + err.message, true); return; }
+      // sem roteiro ainda: detecta balão/texto + lê o original (OCR) antes de traduzir
+      if (!currentImageBase64) {
+        setMainStatus('Esta página não tem roteiro nem imagem - nada pra detectar ou traduzir.', true);
+        return;
+      }
+      try {
+        setMainStatus('Detectando balões e lendo o texto original (pode levar um instante)...');
+        const lines = await detectAndReadViaCoopIA(currentImageBase64, dom.readingDirection.value);
+        if (!lines.length) {
+          setMainStatus('Nenhum texto legível foi detectado nesta página.', true);
+          setBusy(false);
+          return;
+        }
+        setMainStatus('Traduzindo o texto lido...');
+        const result = await callStudio({ type: 'translate-lines', pageKey: currentPageKey, lines });
+        dom.draftView.value = linesToText(result.draft);
+        updateCreditsLabel(result.credits);
+        setMainStatus('Rascunho gerado (detecção + OCR + tradução) e salvo.');
+      } catch (err2) {
+        setMainStatus('Erro: ' + err2.message, true);
+      }
     } finally {
       setBusy(false);
     }
