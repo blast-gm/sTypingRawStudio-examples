@@ -57,6 +57,8 @@
     creditsBadge: el('creditsBadge'),
     creditsLabelTop: el('creditsLabelTop'),
     btnLogout: el('btnLogout'),
+    modelSelect: el('modelSelect'),
+    btnSaveSettings: el('btnSaveSettings'),
     toolbar: el('toolbar'),
     settingsStatus: el('settingsStatus'),
     brushSize: el('brushSize'),
@@ -179,12 +181,31 @@
     location.reload();
   });
 
+  dom.btnSaveSettings.addEventListener('click', async () => {
+    dom.settingsStatus.textContent = '';
+    dom.settingsStatus.classList.remove('error');
+    try {
+      await callStudio({ type: 'save-settings', model: dom.modelSelect.value });
+      dom.settingsStatus.textContent = 'Salvo!';
+      setTimeout(() => { dom.settingsStatus.textContent = ''; }, 2000);
+    } catch (err) {
+      dom.settingsStatus.textContent = 'Erro: ' + err.message;
+      dom.settingsStatus.classList.add('error');
+    }
+  });
+
+  async function loadSettings() {
+    const settings = await callStudio({ type: 'get-settings' });
+    dom.modelSelect.value = settings.model || 'manga';
+  }
+
   async function afterLogin(profile) {
     dom.loginScreen.hidden = true;
     dom.settingsBox.hidden = false;
     dom.loggedAsCode.textContent = profile.code;
     dom.loggedAsTeam.textContent = profile.team;
     await refreshCredits();
+    await loadSettings();
     await initAfterLogin();
   }
 
@@ -616,7 +637,9 @@
     let delay = 400;
     for (;;) {
       const outcome = await callStudio({ type: 'cloud-poll', sessionId });
-      if (outcome.status === 'done') return outcome.outputs.result;
+      // sem outputNames no pedido, o servidor devolve o(s) output(s) com o nome REAL do modelo
+      // (o LaMA não se chama "result" como o MI-GAN) - pega o 1º que vier, é sempre só um aqui.
+      if (outcome.status === 'done') return Object.values(outcome.outputs)[0];
       if (outcome.status === 'error') throw new Error(outcome.message);
       await new Promise((resolve) => setTimeout(resolve, delay));
       delay = Math.min(delay * 1.5, 3000);
@@ -626,13 +649,19 @@
   // ------------------------------------------------------------
   // helpers de tensor (pixels <-> { type, dims, data } que
   // studio.image.runOnnxModel espera - ver docs/extensions/image-api.md
-  // no repo principal) - o MI-GAN usa layout NCHW, uint8, RGB pra
-  // imagem e grayscale pra mascara com 255=MANTER/0=RECONSTRUIR (o
-  // OPOSTO da mascara que este painel desenha - branco=pintado/
-  // remover - por isso maskImageDataToNchwUint8Inverted() abaixo
-  // inverte na hora de montar o tensor).
+  // no repo principal) - o LaMA (lama-manga/lama_fp32) usa layout NCHW,
+  // float32, RGB normalizado 0-1 (pixel/255) pra imagem, e mascara de 1
+  // canal também float32 0-1 onde 1=RECONSTRUIR/0=MANTER - o MESMO
+  // sentido da máscara que este painel já desenha (branco=pintado=
+  // reconstruir), então NÃO precisa inverter nada (diferente do MI-GAN,
+  // que usava o sentido oposto). Os dois modelos exigem entrada FIXA em
+  // 512x512 (ver LAMA_INPUT_SIZE) - o recorte (de tamanho variável) é
+  // redimensionado pra 512x512 antes de mandar, e o resultado é
+  // redimensionado de volta pro tamanho original do recorte ao colar.
   // ------------------------------------------------------------
-  function uint8ToBase64(bytes) {
+  const LAMA_INPUT_SIZE = 512;
+
+  function bytesToBase64(bytes) {
     const CHUNK_SIZE = 0x8000; // 32k - seguro pro limite de argumentos de String.fromCharCode.apply
     let binary = '';
     for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
@@ -641,41 +670,58 @@
     return btoa(binary);
   }
 
-  function base64ToUint8(base64) {
+  function base64ToFloat32(base64) {
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes;
+    return new Float32Array(bytes.buffer);
   }
 
-  function imageDataToNchwUint8(imageData, channels) {
+  /** Redimensiona um ImageData pra um tamanho fixo via canvas - smoothing ligado pra imagem
+   *  (interpolação suave), desligado pra máscara (equivalente a vizinho-mais-próximo, evita
+   *  "borrar" a borda pintada em tons de cinza intermediários). */
+  function resizeImageData(imageData, targetW, targetH, smoothing) {
+    const src = document.createElement('canvas');
+    src.width = imageData.width;
+    src.height = imageData.height;
+    src.getContext('2d').putImageData(imageData, 0, 0);
+    const dst = document.createElement('canvas');
+    dst.width = targetW;
+    dst.height = targetH;
+    const dctx = dst.getContext('2d');
+    dctx.imageSmoothingEnabled = !!smoothing;
+    dctx.drawImage(src, 0, 0, targetW, targetH);
+    return dctx.getImageData(0, 0, targetW, targetH);
+  }
+
+  function imageDataToNchwFloat32(imageData, channels) {
     const { width, height, data } = imageData;
     const pixelCount = width * height;
-    const out = new Uint8Array(channels * pixelCount);
+    const out = new Float32Array(channels * pixelCount);
     for (let i = 0; i < pixelCount; i++) {
       for (let c = 0; c < channels; c++) {
-        out[c * pixelCount + i] = data[i * 4 + c];
+        out[c * pixelCount + i] = data[i * 4 + c] / 255;
       }
     }
     return out;
   }
 
-  function maskImageDataToNchwUint8Inverted(imageData) {
+  function maskImageDataToNchwFloat32(imageData) {
     const { width, height, data } = imageData;
     const pixelCount = width * height;
-    const out = new Uint8Array(pixelCount);
+    const out = new Float32Array(pixelCount);
     for (let i = 0; i < pixelCount; i++) {
-      out[i] = 255 - data[i * 4]; // canal R (preto/branco solido) invertido: 255=manter pro MI-GAN
+      out[i] = data[i * 4] > 0 ? 1 : 0; // canal R: qualquer tinta ali = reconstruir ali
     }
     return out;
   }
 
-  function nchwUint8ToImageData(chwData, width, height, channels) {
+  function nchwFloat32ToImageData(chwData, width, height, channels) {
     const pixelCount = width * height;
     const imageData = new ImageData(width, height);
     for (let i = 0; i < pixelCount; i++) {
       for (let c = 0; c < channels; c++) {
-        imageData.data[i * 4 + c] = chwData[c * pixelCount + i];
+        imageData.data[i * 4 + c] = Math.max(0, Math.min(255, Math.round(chwData[c * pixelCount + i] * 255)));
       }
       imageData.data[i * 4 + 3] = 255;
     }
@@ -750,20 +796,27 @@
       const maskCtxFull = maskCanvasFull.getContext('2d', { willReadFrequently: true });
       const maskRegion = maskCtxFull.getImageData(crop.left, crop.top, crop.width, crop.height);
 
+      // o LaMA exige entrada FIXA 512x512 - redimensiona o recorte (tamanho variável) pra isso
+      // antes de montar os tensores; o resultado volta do mesmo jeito (512x512) e é
+      // redimensionado de volta pro tamanho do recorte original antes de colar na página.
+      const imageResized = resizeImageData(imageRegion, LAMA_INPUT_SIZE, LAMA_INPUT_SIZE, true);
+      const maskResized = resizeImageData(maskRegion, LAMA_INPUT_SIZE, LAMA_INPUT_SIZE, false);
+
       const imageTensor = {
-        type: 'uint8',
-        dims: [1, 3, crop.height, crop.width],
-        data: uint8ToBase64(imageDataToNchwUint8(imageRegion, 3)),
+        type: 'float32',
+        dims: [1, 3, LAMA_INPUT_SIZE, LAMA_INPUT_SIZE],
+        data: bytesToBase64(new Uint8Array(imageDataToNchwFloat32(imageResized, 3).buffer)),
       };
       const maskTensor = {
-        type: 'uint8',
-        dims: [1, 1, crop.height, crop.width],
-        data: uint8ToBase64(maskImageDataToNchwUint8Inverted(maskRegion)),
+        type: 'float32',
+        dims: [1, 1, LAMA_INPUT_SIZE, LAMA_INPUT_SIZE],
+        data: bytesToBase64(new Uint8Array(maskImageDataToNchwFloat32(maskResized).buffer)),
       };
 
       const result = await cleanStrokeCloud(imageTensor, maskTensor);
       const [, resultChannels, resultH, resultW] = result.dims;
-      const resultImageData = nchwUint8ToImageData(base64ToUint8(result.data), resultW, resultH, resultChannels);
+      const resultImageData512 = nchwFloat32ToImageData(base64ToFloat32(result.data), resultW, resultH, resultChannels);
+      const resultImageData = resizeImageData(resultImageData512, crop.width, crop.height, true);
 
       getUndoStack(currentPageKey()).push(beforeDataUrl);
       fullCtx.putImageData(resultImageData, crop.left, crop.top);
