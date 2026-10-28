@@ -20,6 +20,18 @@ textarea { min-height: 260px; resize: vertical; line-height: 1.5; }
 .pageHeader #btnReload { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
 #pageLabel { font-size: 13px; color: #cfcfe0; font-weight: 600; min-width: 90px; text-align: center; }
 
+/* saldo de créditos sempre visível (não só dentro de "Configurações/Conta", que fica fechada por
+   padrão) - mesmo truque de position:absolute do botão Recarregar, só que do lado esquerdo */
+.credits-badge {
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  font-size: 12px; color: #cfcfe0; background: #111116; border: 1px solid #2a2a34;
+  border-radius: 999px; padding: 5px 11px;
+}
+.credits-badge strong { color: #ffb545; font-weight: 700; font-size: 13px; }
+.credits-badge.low { border-color: #ff5a5a; }
+.credits-badge.low strong { color: #ff5a5a; }
+
 .columns { display: flex; gap: 14px; }
 .col { flex: 1; min-width: 0; }
 
@@ -97,6 +109,7 @@ button.ghost:hover { background: #22222b; }
 
   .pageHeader { flex-wrap: wrap; justify-content: center; row-gap: 8px; }
   .pageHeader #btnReload { position: static; transform: none; order: 3; width: 100%; }
+  .credits-badge { position: static; transform: none; order: -1; width: 100%; justify-content: center; }
 
   .columns { flex-direction: column; gap: 18px; }
   textarea { min-height: 180px; }

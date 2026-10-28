@@ -54,6 +54,8 @@
     loggedAsCode: el('loggedAsCode'),
     loggedAsTeam: el('loggedAsTeam'),
     creditsLabel: el('creditsLabel'),
+    creditsBadge: el('creditsBadge'),
+    creditsLabelTop: el('creditsLabelTop'),
     btnLogout: el('btnLogout'),
     toolbar: el('toolbar'),
     settingsStatus: el('settingsStatus'),
@@ -121,8 +123,14 @@
   // auth-login/auth-setup-password.
   // ------------------------------------------------------------
   function updateCreditsLabel(credits) {
-    if (credits == null) dom.creditsLabel.textContent = 'ilimitado';
-    else dom.creditsLabel.textContent = String(credits);
+    const text = credits == null ? 'ilimitado' : String(credits);
+    dom.creditsLabel.textContent = text;
+    dom.creditsLabelTop.textContent = text;
+    const low = typeof credits === 'number' && credits <= 10;
+    dom.creditsBadge.classList.toggle('low', low);
+    dom.creditsBadge.title = low
+      ? 'Créditos CoopIA acabando! Assine um plano ou espere o reset semanal.'
+      : 'Créditos CoopIA disponíveis (1 crédito por página confirmada)';
   }
 
   async function refreshCredits() {

@@ -31,6 +31,8 @@
     loggedAsCode: el('loggedAsCode'),
     loggedAsTeam: el('loggedAsTeam'),
     creditsLabel: el('creditsLabel'),
+    creditsBadge: el('creditsBadge'),
+    creditsLabelTop: el('creditsLabelTop'),
     btnLogout: el('btnLogout'),
     appBody: el('appBody'),
     targetLang: el('targetLang'),
@@ -129,7 +131,15 @@
   }
 
   function updateCreditsLabel(credits) {
-    dom.creditsLabel.textContent = credits == null ? 'ilimitado' : String(credits);
+    const text = credits == null ? 'ilimitado' : String(credits);
+    dom.creditsLabel.textContent = text;
+    dom.creditsLabelTop.textContent = text;
+    // sem limite ou ainda sem número nenhum (credits===undefined antes do 1º refresh): nunca "baixo"
+    const low = typeof credits === 'number' && credits <= 10;
+    dom.creditsBadge.classList.toggle('low', low);
+    dom.creditsBadge.title = low
+      ? 'Créditos CoopIA acabando! Assine um plano ou espere o reset semanal.'
+      : 'Créditos CoopIA disponíveis (1 crédito por fala traduzida)';
   }
 
   async function refreshCredits() {
