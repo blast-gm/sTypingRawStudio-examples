@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>CoopIA - Limpar páginas (LaMA)</title>
+<title>CoopIA - Limpar páginas</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -27,21 +27,15 @@
     <summary>⚙ Sobre / Conta</summary>
     <div class="settingsBody">
       <p class="hint">
-        Reconstrução via <strong>LaMA</strong> rodando no servidor do CoopIA
+        Reconstrução via <strong>MI-GAN</strong> rodando no servidor do CoopIA
         (sem Gemini, sem IA local no app) - só o recorte da área pintada é
         enviado, nunca a página inteira; a sessão se autodestrói assim que a
         extensão recebe a resposta. Cada página <strong>confirmada</strong>
         consome 1 crédito (os traços em si, enquanto você ainda está
         pintando, não cobram nada).
       </p>
-      <label for="modelSelect">Modelo de reconstrução</label>
-      <select id="modelSelect">
-        <option value="manga">Mangá/anime (lama-manga) - melhor pra screentone/trama em P&amp;B</option>
-        <option value="generic">Genérico (lama_fp32) - obra colorida/realista sem trama</option>
-      </select>
       <p class="hint">Logado como <strong id="loggedAsCode">-</strong> · Time <strong id="loggedAsTeam">-</strong> · Créditos: <strong id="creditsLabel">-</strong></p>
       <div class="actions">
-        <button id="btnSaveSettings">Salvar modelo</button>
         <button id="btnLogout">Sair</button>
         <span id="settingsStatus" class="status"></span>
       </div>

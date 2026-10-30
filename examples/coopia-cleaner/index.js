@@ -1,23 +1,14 @@
 /**
- * CoopIA - Limpar páginas. Fork do Smart Cleaner Mobile que troca o processamento local (LaMA
+ * CoopIA - Limpar páginas. Fork do Smart Cleaner Mobile que troca o processamento local (MI-GAN
  * via studio.image.runOnnxModel) por SEMPRE usar a nuvem do CoopIA - sem Gemini, sem IA local no
  * app. Precisa de login (mesmo ID/senha do TeamDrive, repassado pelo próprio CoopIA) e cada página
  * confirmada consome 1 crédito. O resto (listar/navegar páginas, desfazer) é idêntico ao original -
  * só a parte de "pra onde manda o traço" e "como confirma a página" muda.
- *
- * Dois modelos disponíveis no servidor do CoopIA (mesma escolha que o Smart Cleaner "normal" já
- * oferece, ver examples/smart-cleaner/index.js): "manga" (lama-manga.onnx, mayocream/lama-manga-onnx,
- * Apache-2.0, fine-tuned em mangá/anime - reconstrói screentone/trama bem melhor que o genérico) e
- * "generic" (lama_fp32.onnx, Carve/LaMa-ONNX - pra obra colorida/realista sem trama nenhuma).
  */
 module.exports = function (studio) {
   // servidor do CoopIA (ex-ai.blast.net.br/TesteAICloud, renomeado) - mesmo domínio/SSL de sempre.
   const CLOUD_URL = 'https://ai.blast.net.br';
-  const MODELS = { manga: 'lama-manga', generic: 'lama_fp32' };
-  const DEFAULT_MODEL = 'manga';
-
-  function getModel() { const m = studio.settings.get('model'); return MODELS[m] ? m : DEFAULT_MODEL; }
-  function setModel(m) { studio.settings.set('model', MODELS[m] ? m : DEFAULT_MODEL); }
+  const CLOUD_MODEL_NAME = 'migan_pipeline_v2';
 
   function getToken() { return studio.settings.get('coopiaToken') || ''; }
   function setToken(t) { studio.settings.set('coopiaToken', t || ''); }
@@ -63,11 +54,8 @@ module.exports = function (studio) {
   // este arquivo roda num sandbox vm sem setTimeout, então o loop de espera entre tentativas de
   // poll roda no PAINEL (ui/app.js), que tem um browser de verdade.
   const cloudCreateSession = () => cloudFetch('/sessions', { method: 'POST' });
-  // sem "outputNames": o servidor devolve TODOS os outputs do modelo pelo nome real deles (o
-  // LaMA não necessariamente se chama "result" como o MI-GAN - ver ui/app.js, que lê a 1ª chave
-  // que vier em vez de um nome fixo).
   const cloudProcess = (sessionId, imageTensor, maskTensor) => cloudFetch(`/sessions/${sessionId}/process`, {
-    method: 'POST', body: JSON.stringify({ model: MODELS[getModel()], feeds: { image: imageTensor, mask: maskTensor } }),
+    method: 'POST', body: JSON.stringify({ model: CLOUD_MODEL_NAME, feeds: { image: imageTensor, mask: maskTensor }, outputNames: ['result'] }),
   });
   const cloudPoll = (sessionId) => cloudFetch(`/sessions/${sessionId}/result`);
 
@@ -82,9 +70,6 @@ module.exports = function (studio) {
       case 'auth-login': return { profile: await login(msg.code, msg.password) };
       case 'auth-setup-password': return { profile: await setupPassword(msg.code, msg.password) };
       case 'auth-logout': return logout().then(() => ({ ok: true }));
-
-      case 'get-settings': return { model: getModel(), models: Object.keys(MODELS) };
-      case 'save-settings': setModel(msg.model); return { ok: true };
 
       case 'get-page-list': return { pages: await getCleanablePages() };
 
@@ -115,7 +100,7 @@ module.exports = function (studio) {
   }
 
   function openCleanerPanel() {
-    studio.ui.openPanel({ title: 'CoopIA - Limpeza de páginas (LaMA)', htmlFile: 'ui/index.html', onMessage: handlePanelMessage });
+    studio.ui.openPanel({ title: 'CoopIA - Limpeza de páginas (MI-GAN)', htmlFile: 'ui/index.html', onMessage: handlePanelMessage });
   }
 
   studio.menu.register({
