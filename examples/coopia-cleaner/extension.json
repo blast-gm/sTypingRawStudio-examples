@@ -1,7 +1,7 @@
 {
   "id": "coopia-cleaner",
   "name": "CoopIA - Limpar páginas",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Limpa páginas (remove texto/marcas da imagem original) usando inpainting com IA (MI-GAN) 100% na nuvem do CoopIA - sem Gemini, sem IA local no app. Precisa de login (mesmo ID/senha do TeamDrive) e consome 1 crédito por página confirmada.",
   "author": "sTraw Studio",
   "apiVersion": "1.0",
